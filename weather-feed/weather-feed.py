@@ -198,24 +198,34 @@ def _parse_ndbc(text):
     Parse NDBC standard meteorological data format.
 
     Lines are space-delimited.  'MM' marks missing values.
-    First line = column headers, second line = latest observation.
+    Line 1 = column headers (e.g. YY MM DD hh mm WDIR WSPD …)
+    Line 2 = units comment (skip — e.g. yr mo dy hr mn degT m/s …)
+    Line 3+ = data rows, most recent first.
     """
     lines = text.strip().split('\n')
-    if len(lines) < 2:
+    if len(lines) < 3:
         return None
 
+    # Line 1: column names
     headers = lines[0].strip().split()
-    data = lines[1].strip().split()
+    # Line 3: most recent data row (skip line 2 == units)
+    data = lines[2].strip().split()
 
     if len(headers) != len(data):
         return None
 
     result = {}
     for h, v in zip(headers, data):
+        h = h.lstrip('#')  # first header may start with #YY
         try:
-            result[h] = float(v) if '.' in str(v) else int(v) if v != 'MM' else None
+            if v == 'MM':
+                result[h] = None
+            elif '.' in v:
+                result[h] = float(v)
+            else:
+                result[h] = int(v)
         except (ValueError, IndexError):
-            result[h] = v  # keep as string (e.g. date parts)
+            result[h] = v
     return result
 
 
