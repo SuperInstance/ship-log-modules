@@ -1427,7 +1427,10 @@ function safeParse(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
-    return JSON.parse(raw);
+    const v = JSON.parse(raw);
+    // Coerce null to fallback (we never want null back from storage)
+    if (v === null || v === undefined) return fallback;
+    return v;
   } catch(e) { return fallback; }
 }
 function getEngineHours() {
@@ -1836,7 +1839,8 @@ function chime(kind = 'achievement') {
 // CONFETTI for rank-up
 // ═══════════════════════════════════════════════════════════
 function fireConfetti(canvas) {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  if (!ctx) return; // graceful fallback for environments without canvas (e.g. jsdom)
   const W = canvas.width = window.innerWidth;
   const H = canvas.height = window.innerHeight;
   const colors = ['#fbbf24','#8b5cf6','#10b981','#0ea5e9','#f472b6','#ef4444'];
