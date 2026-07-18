@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📖 Crew Logbook</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1f2937;
+    --accent: #14b8a6;
+    --accent-dim: #0f766e;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --captain: #f59e0b;
+    --mate: #0ea5e9;
+    --deckhand: #10b981;
+    --engineer: #ef4444;
+    --observer: #8b5cf6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+
+  /* New Entry Bar */
+  .entry-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .entry-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: end;
+  }
+  .entry-row .main-input { grid-column: 1 / -1; }
+  .entry-textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+  }
+  .entry-textarea:focus { outline: none; border-color: var(--accent); }
+  .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .form-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  .btn-submit {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  .btn-submit:hover { background: var(--accent-dim); }
+
+  /* Watch Toggle */
+  .watch-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .watch-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Log Entries */
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .log-entry {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--text-dim);
+    border-radius: 10px;
+    padding: 12px 16px;
+    transition: all 0.15s;
+  }
+  .log-entry:hover { border-color: var(--accent-dim); }
+  .log-entry.role-captain { border-left-color: var(--captain); }
+  .log-entry.role-mate { border-left-color: var(--mate); }
+  .log-entry.role-deckhand { border-left-color: var(--deckhand); }
+  .log-entry.role-engineer { border-left-color: var(--engineer); }
+  .log-entry.role-observer { border-left-color: var(--observer); }
+
+  .entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .entry-author {
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  .entry-role-badge {
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .badge-captain { background: rgba(245,158,11,0.15); color: var(--captain); }
+  .badge-mate { background: rgba(14,165,233,0.15); color: var(--mate); }
+  .badge-deckhand { background: rgba(16,185,129,0.15); color: var(--deckhand); }
+  .badge-engineer { background: rgba(239,68,68,0.15); color: var(--engineer); }
+  .badge-observer { background: rgba(139,92,246,0.15); color: var(--observer); }
+
+  .entry-time {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  .entry-watch {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    padding: 1px 6px;
+    background: var(--border);
+    border-radius: 8px;
+  }
+  .entry-text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .entry-location {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .entry-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .entry-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+  .entry-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-chip:hover { border-color: var(--accent-dim); }
+  .filter-chip.active {
+    background: var(--accent-dim);
+    color: white;
+    border-color: var(--accent);
+  }
+  .filter-select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  /* Stats Bar */
+  .stats-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+  }
+  .stat-item { color: var(--text-dim); }
+  .stat-item strong { color: var(--text); }
+
+  /* Crew Setup */
+  .crew-setup {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .crew-setup h3 { font-size: 0.9rem; margin-bottom: 10px; }
+  .crew-input-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .crew-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    flex: 1;
+    min-width: 120px;
+  }
+  .crew-list-mini {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .crew-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+  }
+  .crew-chip .remove {
+    cursor: pointer;
+    color: var(--text-dim);
+  }
+  .crew-chip .remove:hover { color: var(--accent); }
+
+  .empty-msg {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 20px;
+  }
+
+  /* Handover Box */
+  .handover-box {
+    background: rgba(20,184,166,0.08);
+    border: 1px dashed var(--accent-dim);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.8rem;
+  }
+  .handover-box strong { color: var(--accent); }
+
+  @media (max-width: 600px) {
+    .entry-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Crew Setup -->
+<div class="crew-setup" id="crew-setup">
+  <h3>👥 Crew Roster</h3>
+  <div class="crew-input-row">
+    <input class="crew-input" id="crew-name-input" placeholder="Name..." onkeypress="if(event.key==='Enter')addCrewMember()">
+    <select class="form-select" id="crew-role-input">
+      <option value="captain">Captain</option>
+      <option value="mate">First Mate</option>
+      <option value="deckhand">Deckhand</option>
+      <option value="engineer">Engineer</option>
+      <option value="observer">Observer</option>
+    </select>
+    <button class="btn-submit" onclick="addCrewMember()">Add</button>
+  </div>
+  <div class="crew-list-mini" id="crew-roster"></div>
+</div>
+
+<!-- New Entry -->
+<div class="entry-bar">
+  <div class="watch-indicator">
+    <div class="watch-dot"></div>
+    <span id="watch-label">— Watch</span>
+  </div>
+  <div class="entry-row">
+    <div class="main-input">
+      <label style="font-size:0.7rem;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">New Entry</label>
+      <textarea class="entry-textarea" id="entry-text" placeholder="What happened? Catch reports, course changes, observations, incidents..." onkeydown="if(event.key==='Enter'&&event.metaKey)submitEntry()"></textarea>
+    </div>
+    <div>
+      <label style="font-size:0.7rem;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Author</label>
+      <select class="form-select" id="entry-author"></select>
+    </div>
+    <button class="btn-submit" onclick="submitEntry()">Log Entry</button>
+  </div>
+</div>
+
+<!-- Handover Summary (if watch change detected) -->
+<div id="handover-display"></div>
+
+<!-- Filters -->
+<div class="filters">
+  <select class="filter-select" id="filter-author" onchange="renderLog()">
+    <option value="">All Crew</option>
+  </select>
+  <select class="filter-select" id="filter-watch" onchange="renderLog()">
+    <option value="">All Watches</option>
+    <option value="day">Day Watch</option>
+    <option value="night">Night Watch</option>
+  </select>
+  <span class="filter-chip active" onclick="setFilter(this,'all')" data-filter="all">All Entries</span>
+  <span class="filter-chip" onclick="setFilter(this,'today')" data-filter="today">Today Only</span>
+  <span class="filter-chip" onclick="setFilter(this,'important')" data-filter="important">⚠ Important</span>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar" id="stats-bar"></div>
+
+<!-- Log Entries -->
+<div class="log-list" id="log-list"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Crew Logbook Module — Shared vessel log
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'crew_logbook';
+const CREW_KEY = 'crew_roster';
+
+const ROLE_ICONS = {
+  captain: '⚓', mate: '🧭', deckhand: '🪝',
+  engineer: '🔧', observer: '🔍'
+};
+
+let entries = loadEntries();
+let crew = loadCrew();
+let activeFilter = 'all';
+
+// ── Storage ─────────────────────────────────────────────
+function loadEntries() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  return [];
+}
+
+function saveEntries() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function loadCrew() {
+  const raw = localStorage.getItem(CREW_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  // Default crew
+  const defaults = [{ name: 'Captain', role: 'captain' }];
+  localStorage.setItem(CREW_KEY, JSON.stringify(defaults));
+  return defaults;
+}
+
+function saveCrew() {
+  localStorage.setItem(CREW_KEY, JSON.stringify(crew));
+}
+
+// ── Watch Detection ────────────────────────────────────
+function getCurrentWatch() {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 18) return { name: 'day', label: 'Day Watch' };
+  return { name: 'night', label: 'Night Watch' };
+}
+
+function updateWatchIndicator() {
+  const watch = getCurrentWatch();
+  document.getElementById('watch-label').textContent = watch.label;
+}
+
+// ── Crew Management ─────────────────────────────────────
+function addCrewMember() {
+  const nameEl = document.getElementById('crew-name-input');
+  const roleEl = document.getElementById('crew-role-input');
+  const name = nameEl.value.trim();
+  if (!name) return;
+
+  crew.push({ name, role: roleEl.value });
+  saveCrew();
+  nameEl.value = '';
+  renderCrew();
+  renderAuthorSelect();
+}
+
+function removeCrewMember(idx) {
+  crew.splice(idx, 1);
+  saveCrew();
+  renderCrew();
+  renderAuthorSelect();
+}
+
+// ── Entry Submission ────────────────────────────────────
+function submitEntry() {
+  const text = document.getElementById('entry-text').value.trim();
+  const author = document.getElementById('entry-author').value;
+  if (!text) return;
+
+  const watch = getCurrentWatch();
+  const now = new Date();
+  const member = crew.find(c => c.name === author);
+
+  entries.push({
+    id: `entry-${Date.now()}`,
+    text,
+    author,
+    role: member ? member.role : 'deckhand',
+    timestamp: now.toISOString(),
+    watch: watch.name,
+    important: text.includes('!') || text.toLowerCase().includes('warning') ||
+               text.toLowerCase().includes('mayday') || text.toLowerCase().includes('emergency'),
+  });
+
+  saveEntries();
+  document.getElementById('entry-text').value = '';
+  renderLog();
+  renderStats();
+
+  // Check for watch handover
+  checkHandover();
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  saveEntries();
+  renderLog();
+  renderStats();
+}
+
+function toggleImportant(id) {
+  const entry = entries.find(e => e.id === id);
+  if (entry) {
+    entry.important = !entry.important;
+    saveEntries();
+    renderLog();
+  }
+}
+
+// ── Watch Handover Detection ────────────────────────────
+function checkHandover() {
+  const watch = getCurrentWatch();
+  const lastWatch = localStorage.getItem('last_watch');
+
+  if (lastWatch && lastWatch !== watch.name) {
+    // Watch changed — generate handover summary
+    const lastEntries = entries.filter(e => e.watch === lastWatch).slice(-10);
+    const important = lastEntries.filter(e => e.important);
+
+    let html = `<div class="handover-box">
+      <strong>🔄 Watch Change Detected</strong><br>
+      Handover from <strong>${lastWatch} watch</strong> to <strong>${watch.name} watch</strong>.`;
+
+    if (important.length > 0) {
+      html += `<br><strong>⚠ ${important.length} important item(s) from previous watch:</strong><ul>`;
+      important.forEach(e => {
+        html += `<li>[${e.timestamp.split('T')[1]?.slice(0,5) || ''}] ${e.author}: ${e.text.substring(0,80)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    html += `</div>`;
+
+    document.getElementById('handover-display').innerHTML = html;
+  } else {
+    document.getElementById('handover-display').innerHTML = '';
+  }
+
+  localStorage.setItem('last_watch', watch.name);
+}
+
+// ── Rendering ──────────────────────────────────────────
+function renderCrew() {
+  const el = document.getElementById('crew-roster');
+  el.innerHTML = crew.map((c, i) => `
+    <div class="crew-chip">
+      ${ROLE_ICONS[c.role] || '👤'} ${c.name} (${c.role})
+      <span class="remove" onclick="removeCrewMember(${i})">×</span>
+    </div>
+  `).join('');
+}
+
+function renderAuthorSelect() {
+  const sel = document.getElementById('entry-author');
+  const filterSel = document.getElementById('filter-author');
+  sel.innerHTML = crew.map(c => `<option value="${c.name}">${ROLE_ICONS[c.role] || ''} ${c.name}</option>`).join('');
+  filterSel.innerHTML = '<option value="">All Crew</option>' +
+    crew.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+function setFilter(el, filter) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderLog();
+}
+
+function getFilteredEntries() {
+  let filtered = [...entries];
+  const author = document.getElementById('filter-author')?.value;
+  const watch = document.getElementById('filter-watch')?.value;
+
+  if (author) filtered = filtered.filter(e => e.author === author);
+  if (watch) filtered = filtered.filter(e => e.watch === watch);
+
+  if (activeFilter === 'today') {
+    const today = new Date().toISOString().split('T')[0];
+    filtered = filtered.filter(e => e.timestamp.startsWith(today));
+  } else if (activeFilter === 'important') {
+    filtered = filtered.filter(e => e.important);
+  }
+
+  return filtered.reverse();
+}
+
+function renderLog() {
+  const list = document.getElementById('log-list');
+  const filtered = getFilteredEntries();
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-msg">No entries. Write something in the box above.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => {
+    const d = new Date(e.timestamp);
+    const time = d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+
+    return `
+      <div class="log-entry role-${e.role}">
+        <div class="entry-meta">
+          <span class="entry-author">${ROLE_ICONS[e.role] || ''} ${e.author}</span>
+          <span class="entry-role-badge badge-${e.role}">${e.role}</span>
+          <span class="entry-watch">${e.watch} watch</span>
+          <span class="entry-time">${time}</span>
+        </div>
+        <div class="entry-text">${e.important ? '⚠ ' : ''}${e.text}</div>
+        <div class="entry-actions">
+          <button class="entry-btn" onclick="toggleImportant('${e.id}')">
+            ${e.important ? 'Unmark' : 'Mark Important'}
+          </button>
+          <button class="entry-btn" onclick="deleteEntry('${e.id}')">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const bar = document.getElementById('stats-bar');
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntries = entries.filter(e => e.timestamp.startsWith(today));
+  const importantCount = entries.filter(e => e.important).length;
+  const dayCount = entries.filter(e => e.watch === 'day').length;
+  const nightCount = entries.filter(e => e.watch === 'night').length;
+
+  bar.innerHTML = `
+    <div class="stat-item">Total: <strong>${entries.length}</strong></div>
+    <div class="stat-item">Today: <strong>${todayEntries.length}</strong></div>
+    <div class="stat-item">Important: <strong style="color:var(--warn)">${importantCount}</strong></div>
+    <div class="stat-item">Day entries: <strong>${dayCount}</strong></div>
+    <div class="stat-item">Night entries: <strong>${nightCount}</strong></div>
+    <div class="stat-item">Crew: <strong>${crew.length}</strong></div>
+  `;
+}
+
+// ── Init ────────────────────────────────────────────────
+updateWatchIndicator();
+renderCrew();
+renderAuthorSelect();
+renderLog();
+renderStats();
+checkHandover();
+
+// Update watch indicator every minute
+setInterval(updateWatchIndicator, 60000);
+</script>
+</body>
+</html>

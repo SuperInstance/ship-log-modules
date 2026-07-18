@@ -1,0 +1,12 @@
+{
+  "name": "crew-logbook",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Shared crew log — multiple crew members add timestamped entries with their name, role, and watch",
+  "author": "SuperInstance",
+  "tags": ["crew", "logbook", "watch", "shared"],
+  "config": {
+    "tab": { "label": "📖 Crew Log", "icon": "📖" }
+  },
+  "permissions": ["read:logs", "write:logs"]
+}
