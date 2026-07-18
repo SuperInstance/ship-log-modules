@@ -1,0 +1,12 @@
+{
+  "name": "tide-predictor",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "NOAA tide predictions, current stations, and tidal current overlays for North American waters",
+  "author": "SuperInstance",
+  "tags": ["tide", "current", "noaa", "navigation"],
+  "config": {
+    "tab": { "label": "🌊 Tides", "icon": "🌊" }
+  },
+  "permissions": ["read:logs"]
+}

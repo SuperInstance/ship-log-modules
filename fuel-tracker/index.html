@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0a1929" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Ship Log · Fuel Tracker</title>
+
+  <!-- Chart.js (pinned, cacheable) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ============================================================
+       Fuel Tracker — maritime dark theme.
+       Designed for nav computers, phones, gloved hands, sunlight.
+       ============================================================ */
+    :root {
+      --bg:        #0a1929;
+      --bg-2:      #0f2540;
+      --bg-3:      #163358;
+      --panel:     rgba(15, 37, 64, 0.92);
+      --border:    rgba(255, 255, 255, 0.10);
+      --border-2:  rgba(255, 255, 255, 0.18);
+      --text:      #e6f1ff;
+      --text-dim:  #9fb3c8;
+      --text-mute: #6b8299;
+      --accent:    #f59e0b;       /* fuel = amber */
+      --accent-2:  #fbbf24;
+      --danger:    #ef4444;
+      --ok:        #10b981;
+      --info:      #22d3ee;
+      --tap:       48px;
+      --shadow:    0 8px 28px rgba(0,0,0,0.55);
+      --radius:    14px;
+      --top-h:     56px;
+      --safe-top:  env(safe-area-inset-top, 0px);
+      --safe-bot:  env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+
+    body { display: flex; flex-direction: column; }
+
+    /* ---------- Top bar ---------- */
+    .topbar {
+      flex: 0 0 auto;
+      height: calc(var(--top-h) + var(--safe-top));
+      padding: var(--safe-top) 12px 0 12px;
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(180deg, var(--bg-2) 0%, rgba(15,37,64,0.85) 100%);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 50;
+      position: relative;
+    }
+    .topbar h1 {
+      flex: 1 1 auto; min-width: 0;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .topbar h1 .sub {
+      font-weight: 400;
+      color: var(--text-dim);
+      font-size: 12px;
+      margin-left: 6px;
+    }
+    .topbar .icon-btn {
+      width: 40px; height: 40px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .topbar .icon-btn:active { background: rgba(255,255,255,0.10); }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.20);
+    }
+    .status-dot.offline { background: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.20); }
+    .status-dot.queued  { background: var(--accent); box-shadow: 0 0 0 3px rgba(245,158,11,0.20); }
+
+    /* ---------- Main scroll area ---------- */
+    main {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 14px 14px calc(20px + var(--safe-bot)) 14px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-mute);
+      margin: 18px 4px 8px;
+      font-weight: 600;
+    }
+    .section-title:first-child { margin-top: 4px; }
+
+    /* ---------- Cards / dashboard ---------- */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    @media (min-width: 720px) {
+      .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .card .label {
+      font-size: 11px;
+      color: var(--text-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .card .value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .card .unit {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 500;
+      margin-left: 3px;
+    }
+    .card .meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .card.alert {
+      border-color: rgba(239,68,68,0.45);
+      background: linear-gradient(180deg, rgba(239,68,68,0.10), var(--panel));
+    }
+
+    /* Tank gauge */
+    .tank-card { grid-column: span 2; }
+    @media (min-width: 720px) { .tank-card { grid-column: span 2; } }
+    .tank-gauge {
+      height: 14px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+      position: relative;
+    }
+    .tank-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+    .tank-fill.low { background: linear-gradient(90deg, #dc2626, var(--danger)); }
+    .tank-fill.mid { background: linear-gradient(90deg, #d97706, var(--accent)); }
+
+    /* ---------- Forms ---------- */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+    .panel.collapsed .panel-body { display: none; }
+    .panel-head {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+    }
+    .panel-head .chev {
+      color: var(--text-dim);
+      transition: transform 0.2s ease;
+    }
+    .panel.collapsed .panel-head .chev { transform: rotate(-90deg); }
+
+    .grid-form {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    @media (min-width: 720px) {
+      .grid-form { grid-template-columns: repeat(3, 1fr); }
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-weight: 600;
+    }
+    .field input, .field select, .field textarea {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 11px 12px;
+      font-size: 16px; /* avoid iOS zoom */
+      font-family: inherit;
+      width: 100%;
+      min-height: var(--tap);
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.20);
+    }
+    .field textarea { resize: vertical; min-height: 60px; }
+
+    .btn-row {
+      display: flex; gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      min-height: var(--tap);
+      padding: 0 18px;
+      border: 1px solid var(--border-2);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn.primary {
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      border-color: var(--accent);
+      color: #1a1208;
+    }
+    .btn.primary:active { filter: brightness(0.92); }
+    .btn.ghost { background: transparent; }
+    .btn.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Toggle pills */
+    .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pill.on {
+      background: rgba(245,158,11,0.18);
+      border-color: var(--accent);
+      color: var(--accent-2);
+    }
+
+    /* ---------- Charts ---------- */
+    .chart-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+    .chart-card h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+    @media (min-width: 720px) {
+      .chart-wrap { height: 260px; }
+    }
+
+    /* ---------- Log entries ---------- */
+    .entry-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .entry {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 10px;
+      align-items: center;
+    }
+    .entry .top {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 8px;
+      flex-wrap: wrap;
+    }
+    .entry .date {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .entry .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(245,158,11,0.15);
+      color: var(--accent-2);
+      border: 1px solid rgba(245,158,11,0.30);
+    }
+    .entry .badge.queued {
+      background: rgba(245,158,11,0.25);
+      color: var(--accent-2);
+    }
+    .entry .where {
+      grid-column: 1 / 2;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+    .entry .amt {
+      grid-column: 2 / 3;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .entry .amt .gals {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .entry .amt .cost {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .entry .stats {
+      grid-column: 1 / -1;
+      display: flex; gap: 12px;
+      font-size: 11px;
+      color: var(--text-mute);
+      flex-wrap: wrap;
+      border-top: 1px dashed var(--border);
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+    .entry .stats b {
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .entry .actions {
+      grid-column: 1 / -1;
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 4px;
+    }
+    .entry .actions button {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .entry .actions button:hover { color: var(--danger); }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-mute);
+    }
+    .empty .icon { font-size: 36px; margin-bottom: 8px; opacity: 0.5; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      left: 50%; bottom: calc(20px + var(--safe-bot));
+      transform: translateX(-50%);
+      background: var(--bg-3);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .toast.error { background: #4a1212; border-color: var(--danger); }
+    .toast.ok { background: #0c3a26; border-color: var(--ok); }
+
+    /* Modal (settings) */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 150;
+      padding: 16px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--bg-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius);
+      width: 100%; max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .modal h2 { margin: 0 0 12px; font-size: 17px; }
+    .modal .close {
+      float: right;
+      background: transparent; border: none;
+      color: var(--text-dim); font-size: 22px; cursor: pointer;
+      line-height: 1;
+    }
+
+    /* Stats grid for entry details */
+    .kvs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 12px; }
+    .kv { display: flex; justify-content: space-between; font-size: 13px; }
+    .kv .k { color: var(--text-mute); }
+    .kv .v { color: var(--text); font-variant-numeric: tabular-nums; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <span class="status-dot" id="statusDot" title="API status"></span>
+    <h1>⛽ Fuel<span class="sub" id="headerSub">loading…</span></h1>
+    <button class="icon-btn" id="btnRefresh" title="Refresh" aria-label="Refresh">↻</button>
+    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+
+  <main>
+
+    <!-- ============ Dashboard cards ============ -->
+    <div class="section-title">Dashboard</div>
+    <div class="cards">
+      <div class="card tank-card" id="tankCard">
+        <div class="label">Tank Level</div>
+        <div class="value">
+          <span id="tankPct">—</span><span class="unit">%</span>
+        </div>
+        <div class="meta"><span id="tankGal">—</span> of <span id="tankCap">—</span> <span class="unit">gal</span></div>
+        <div class="tank-gauge"><div class="tank-fill" id="tankFill" style="width:0%"></div></div>
+      </div>
+      <div class="card" id="rangeCard">
+        <div class="label">Est. Range</div>
+        <div class="value">
+          <span id="rangeVal">—</span><span class="unit">nm</span>
+        </div>
+        <div class="meta">@ <span id="rangeNmpg">—</span> nm/gal</div>
+      </div>
+      <div class="card" id="gphCard">
+        <div class="label">Avg Burn</div>
+        <div class="value">
+          <span id="gphVal">—</span><span class="unit">gal/h</span>
+        </div>
+        <div class="meta">over <span id="gphHours">—</span> engine hrs</div>
+      </div>
+      <div class="card" id="costCard">
+        <div class="label">Total Spent</div>
+        <div class="value">
+          <span id="costSymbol">$</span><span id="costTotal">—</span>
+        </div>
+        <div class="meta"><span id="costPerNm">—</span>/nm · <span id="costPerHr">—</span>/hr</div>
+      </div>
+    </div>
+
+    <!-- ============ Add fuel entry ============ -->
+    <div class="section-title">Log Fuel Up</div>
+    <div class="panel" id="addPanel">
+      <div class="panel-head" id="addHead">
+        <h2>＋ Add Fuel Entry</h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-form">
+          <div class="field">
+            <label for="fDate">Date</label>
+            <input type="datetime-local" id="fDate" />
+          </div>
+          <div class="field">
+            <label for="fGallons">Gallons</label>
+            <input type="number" step="0.01" min="0" id="fGallons" placeholder="0.00" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label for="fPrice">Price/Gallon</label>
+            <input type="number" step="0.001" min="0" id="fPrice" placeholder="0.000" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label for="fCost">Total Cost (optional)</label>
+            <input type="number" step="0.01" min="0" id="fCost" placeholder="auto" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label for="fEngineHours">Engine Hours</label>
+            <input type="number" step="0.1" min="0" id="fEngineHours" placeholder="1234.5" inputmode="decimal" />
+          </div>
+          <div class="field">
+            <label for="fLocation">Location</label>
+            <input type="text" id="fLocation" placeholder="Marina fuel dock" />
+          </div>
+          <div class="field full">
+            <label for="fNotes">Notes</label>
+            <textarea id="fNotes" placeholder="Topped off both tanks, filtered fuel, etc."></textarea>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="btnSave">💾 Save Entry</button>
+          <button class="btn ghost" id="btnClear">Clear</button>
+          <button class="btn ghost" id="btnUsePos" title="Use device GPS">📍 Use my position</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Charts ============ -->
+    <div class="section-title">Trends</div>
+    <div class="chart-card">
+      <h2>Fuel Consumption</h2>
+      <div class="chart-wrap"><canvas id="consumptionChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2>Cost per Gallon</h2>
+      <div class="chart-wrap"><canvas id="costChart"></canvas></div>
+    </div>
+
+    <!-- ============ Recent entries ============ -->
+    <div class="section-title">
+      Recent Fill-ups
+      <span id="entryCount" style="float:right; color: var(--text-mute); font-weight: 400;"></span>
+    </div>
+    <div class="entry-list" id="entryList">
+      <div class="empty">
+        <div class="icon">⛽</div>
+        No fill-ups logged yet.
+        <div style="margin-top:8px; font-size:12px;">Add your first one above.</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <button class="close" id="btnCloseSettings" aria-label="Close">×</button>
+      <h2>⚙ Settings</h2>
+
+      <div class="grid-form">
+        <div class="field">
+          <label for="sTankCap">Tank Capacity (gal)</label>
+          <input type="number" step="1" min="0" id="sTankCap" />
+        </div>
+        <div class="field">
+          <label for="sCurrent">Current Tank (gal)</label>
+          <input type="number" step="0.1" min="0" id="sCurrent" />
+        </div>
+        <div class="field">
+          <label for="sUnits">Units</label>
+          <select id="sUnits">
+            <option value="gallons">Gallons (US)</option>
+            <option value="liters">Liters</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sCurrency">Currency Symbol</label>
+          <input type="text" id="sCurrency" maxlength="3" />
+        </div>
+        <div class="field full">
+          <label for="sApiBase">API Base URL</label>
+          <input type="text" id="sApiBase" placeholder="https://your-worker.workers.dev" />
+        </div>
+        <div class="field full">
+          <label for="sAvgSpeed">Avg Speed (knots, for range estimate)</label>
+          <input type="number" step="0.1" min="0" id="sAvgSpeed" />
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:18px;">Data</div>
+      <div class="btn-row">
+        <button class="btn ghost" id="btnExport">⬇ Export JSON</button>
+        <button class="btn ghost" id="btnImport">⬆ Import JSON</button>
+        <input type="file" id="fileImport" accept="application/json" style="display:none;" />
+        <button class="btn danger" id="btnClearAll">Clear All</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnSaveSettings">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ============================================================
+       Fuel Tracker — main script.
+       Storage: entries + settings + offline queue in localStorage.
+       API:    POST /api/log (create)
+               GET  /api/logs?category=fuel (list)
+       ============================================================ */
+  (function () {
+    "use strict";
+
+    // -------- Config & state --------
+    const DEFAULTS = {
+      apiBase:        (window.SHIPLOG_CONFIG && window.SHIPLOG_CONFIG.apiBase) || "",
+      defaultUnits:   "gallons",
+      currency:       "$",
+      tankCapacity:   100,
+      currentGallons: 0,
+      avgSpeedKnots:  6,
+      refreshSeconds: 120,
+      cacheKey:       "shiplog.fuel.entries",
+      cacheTTLms:     300000,
+      queueKey:       "shiplog.fuel.queue",
+    };
+
+    const state = {
+      settings: loadSettings(),
+      entries:  [],          // array of normalized fuel entries
+      queue:    [],          // offline queue
+      charts:   {},
+      online:   navigator.onLine,
+    };
+
+    function loadSettings() {
+      const stored = JSON.parse(localStorage.getItem("shiplog.fuel.settings") || "{}");
+      const merged = { ...DEFAULTS, ...stored };
+      // Allow ?api=... override
+      const qs = new URLSearchParams(location.search);
+      if (qs.get("api")) merged.apiBase = qs.get("api");
+      return merged;
+    }
+    function saveSettings() {
+      localStorage.setItem("shiplog.fuel.settings", JSON.stringify(state.settings));
+    }
+
+    // -------- API helpers --------
+    function apiBase() {
+      return (state.settings.apiBase || "").replace(/\/+$/, "");
+    }
+    function apiUrl(path) {
+      const base = apiBase();
+      if (!base) return null;            // local-only mode
+      return base + path;
+    }
+    async function apiList() {
+      const url = apiUrl("/api/logs?category=fuel&limit=500");
+      if (!url) return null;
+      const r = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      return Array.isArray(data) ? data
+           : Array.isArray(data.entries) ? data.entries
+           : Array.isArray(data.items)   ? data.items
+           : Array.isArray(data.results) ? data.results
+           : [];
+    }
+    async function apiCreate(entry) {
+      const url = apiUrl("/api/log");
+      if (!url) throw new Error("No API configured");
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.json().catch(() => ({}));
+    }
+
+    // -------- Storage helpers --------
+    function loadLocalEntries() {
+      try {
+        const raw = localStorage.getItem(state.settings.cacheKey);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    }
+    function saveLocalEntries() {
+      try {
+        localStorage.setItem(state.settings.cacheKey, JSON.stringify(state.entries));
+      } catch (e) { console.warn("localStorage save failed", e); }
+    }
+    function loadQueue() {
+      try {
+        const raw = localStorage.getItem(state.settings.queueKey);
+        const q = raw ? JSON.parse(raw) : [];
+        return Array.isArray(q) ? q : [];
+      } catch { return []; }
+    }
+    function saveQueue() {
+      try {
+        localStorage.setItem(state.settings.queueKey, JSON.stringify(state.queue));
+      } catch {}
+    }
+
+    // -------- Normalization --------
+    // Accept many shapes: gallons / liters, price_per_gallon / pricePerGallon,
+    // total_cost / cost, ts / timestamp / date, engine_hours / engineHours.
+    function normalizeEntry(raw) {
+      const r = raw || {};
+      const ts = r.timestamp || r.ts || r.date || r.created_at || new Date().toISOString();
+      const galRaw = Number(
+        r.gallons ?? r.gal ?? r.liters ?? r.volume ?? r.amount ?? 0
+      );
+      let gallons = galRaw;
+      if ((r.unit === "liters" || state.settings.defaultUnits === "liters") && r.unit !== "gallons") {
+        // If the entry itself was logged in liters (and we currently show gallons), convert.
+        if (r.unit === "liters" && state.settings.defaultUnits !== "liters") {
+          gallons = galRaw * 0.264172;
+        }
+      }
+      const price = Number(r.price_per_gallon ?? r.pricePerGallon ?? r.price ?? r.unit_price ?? 0);
+      const total = Number(r.total_cost ?? r.totalCost ?? r.cost ?? (price * gallons));
+      const engineHours = Number(r.engine_hours ?? r.engineHours ?? r.hours ?? 0);
+      const tripHours   = Number(r.trip_hours   ?? r.tripHours   ?? 0);
+      const distance    = Number(r.distance_nm  ?? r.distanceNm  ?? r.nautical_miles ?? 0);
+
+      return {
+        id:          r.id || ("local-" + (r._localId || Math.random().toString(36).slice(2))),
+        timestamp:   ts,
+        gallons:     isFinite(gallons) ? +gallons.toFixed(2) : 0,
+        pricePerGal: isFinite(price)   ? +price.toFixed(3)   : 0,
+        totalCost:   isFinite(total)   ? +total.toFixed(2)   : 0,
+        engineHours: isFinite(engineHours) ? +engineHours.toFixed(1) : 0,
+        tripHours:   isFinite(tripHours)   ? +tripHours.toFixed(1)   : 0,
+        distance:    isFinite(distance)    ? +distance.toFixed(1)    : 0,
+        location:    r.location || r.where || "",
+        lat:         Number(r.lat || 0),
+        lon:         Number(r.lon || r.lng || 0),
+        notes:       r.notes || r.text || r.body || "",
+        queued:      !!r._queued,
+      };
+    }
+
+    function denormalizeEntry(n) {
+      return {
+        category:     "fuel",
+        timestamp:    n.timestamp,
+        gallons:      n.gallons,
+        unit:         "gallons",
+        price_per_gallon: n.pricePerGal,
+        total_cost:   n.totalCost,
+        engine_hours: n.engineHours,
+        trip_hours:   n.tripHours,
+        distance_nm:  n.distance,
+        location:     n.location,
+        lat:          n.lat,
+        lon:          n.lon,
+        notes:        n.notes,
+      };
+    }
+
+    // -------- Load / merge / save --------
+    async function loadEntries() {
+      // 1. Local cache for instant render
+      state.entries = loadLocalEntries().map(normalizeEntry);
+
+      // 2. Try API
+      if (apiBase() && state.online) {
+        try {
+          const remote = await apiList();
+          if (Array.isArray(remote)) {
+            const remoteNorm = remote.map(normalizeEntry);
+            // Merge: prefer remote ids, append local-only queued entries
+            const remoteIds = new Set(remoteNorm.map(e => e.id));
+            const localOnly = state.entries.filter(e => e.queued && !remoteIds.has(e.id));
+            state.entries = [...remoteNorm, ...localOnly]
+              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            saveLocalEntries();
+          }
+          setStatus("ok", "synced");
+        } catch (e) {
+          console.warn("API list failed:", e);
+          setStatus("offline", "offline · using cache");
+        }
+      } else if (!apiBase()) {
+        setStatus("ok", "local mode");
+      } else {
+        setStatus("offline", "offline");
+      }
+
+      // 3. Try draining queue
+      await drainQueue();
+      renderAll();
+    }
+
+    async function drainQueue() {
+      if (!apiBase() || !state.online) return;
+      if (!state.queue.length) return;
+      const remaining = [];
+      let sent = 0;
+      for (const q of state.queue) {
+        try {
+          await apiCreate(q.payload);
+          sent++;
+          // If we have a local version with the same _localId, mark as synced
+          const local = state.entries.find(e => e.id === q.localId);
+          if (local) local.queued = false;
+        } catch (e) {
+          remaining.push(q);
+        }
+      }
+      state.queue = remaining;
+      saveQueue();
+      saveLocalEntries();
+      if (sent > 0) {
+        setStatus("ok", `synced ${sent} queued`);
+        showToast(`Synced ${sent} queued entries`, "ok");
+      }
+    }
+
+    // -------- Calculations --------
+    function calcStats(entries) {
+      const sorted = [...entries].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // Per-fill efficiency: requires prev engine hours + gallons.
+      // tripHours = current.engineHours - prev.engineHours
+      const perFill = [];
+      let prev = null;
+      for (const e of sorted) {
+        if (prev && e.engineHours > prev.engineHours && e.gallons > 0) {
+          const tripH = e.engineHours - prev.engineHours;
+          const gph   = e.gallons / tripH;
+          // distance is the optional user-entered nautical miles for this leg
+          const nmpg  = e.distance > 0 ? e.distance / e.gallons : 0;
+          perFill.push({
+            timestamp: e.timestamp,
+            tripHours: +tripH.toFixed(1),
+            gallons:   e.gallons,
+            gph:       +gph.toFixed(2),
+            nmpg:      nmpg ? +nmpg.toFixed(2) : 0,
+            cost:      e.totalCost,
+            price:     e.pricePerGal,
+          });
+        }
+        prev = e;
+      }
+
+      // Aggregates
+      const totalGallons = sorted.reduce((s, e) => s + (e.gallons || 0), 0);
+      const totalCost    = sorted.reduce((s, e) => s + (e.totalCost || 0), 0);
+      const totalHours   = sorted.reduce((s, e) => s + (e.tripHours || 0), 0);
+      const totalNm      = sorted.reduce((s, e) => s + (e.distance || 0), 0);
+      const avgGph       = perFill.length ? perFill.reduce((s, p) => s + p.gph, 0) / perFill.length : 0;
+      const avgNmpg      = perFill.filter(p => p.nmpg > 0).length
+                            ? perFill.filter(p => p.nmpg > 0).reduce((s, p) => s + p.nmpg, 0)
+                              / perFill.filter(p => p.nmpg > 0).length
+                            : 0;
+      const avgPrice     = totalGallons > 0 ? totalCost / totalGallons : 0;
+
+      return { sorted, perFill, totalGallons, totalCost, totalHours, totalNm, avgGph, avgNmpg, avgPrice };
+    }
+
+    // -------- Rendering --------
+    function fmt(n, digits = 1) {
+      if (!isFinite(n)) return "—";
+      return n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    }
+    function fmtMoney(n) {
+      const sym = state.settings.currency || "$";
+      return sym + fmt(n, 2);
+    }
+
+    function setStatus(kind, msg) {
+      const dot = document.getElementById("statusDot");
+      dot.classList.remove("offline", "queued");
+      if (kind === "offline") dot.classList.add("offline");
+      else if (kind === "queued") dot.classList.add("queued");
+      document.getElementById("headerSub").textContent = msg || "";
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderEntries();
+      renderCharts();
+    }
+
+    function renderDashboard() {
+      const s = calcStats(state.entries);
+      const cap   = Number(state.settings.tankCapacity) || 0;
+      const cur   = Number(state.settings.currentGallons) || 0;
+      const pct   = cap > 0 ? Math.min(100, Math.max(0, (cur / cap) * 100)) : 0;
+
+      document.getElementById("tankPct").textContent = fmt(pct, 0);
+      document.getElementById("tankGal").textContent = fmt(cur, 1);
+      document.getElementById("tankCap").textContent = fmt(cap, 0);
+
+      const fill = document.getElementById("tankFill");
+      fill.style.width = pct + "%";
+      fill.classList.remove("low", "mid");
+      if (pct < 20) fill.classList.add("low");
+      else if (pct < 50) fill.classList.add("mid");
+
+      const tankCard = document.getElementById("tankCard");
+      tankCard.classList.toggle("alert", pct < 20);
+
+      // Range = current_gallons * nmpg. Fallback to gallons / gph * speed.
+      let rangeNm = 0;
+      if (s.avgNmpg > 0) rangeNm = cur * s.avgNmpg;
+      else if (s.avgGph > 0) rangeNm = (cur / s.avgGph) * (Number(state.settings.avgSpeedKnots) || 0);
+      document.getElementById("rangeVal").textContent = fmt(rangeNm, 0);
+      document.getElementById("rangeNmpg").textContent = s.avgNmpg > 0 ? fmt(s.avgNmpg, 2) : "—";
+
+      document.getElementById("gphVal").textContent = fmt(s.avgGph, 2);
+      document.getElementById("gphHours").textContent = fmt(s.totalHours, 1);
+
+      document.getElementById("costSymbol").textContent = state.settings.currency || "$";
+      document.getElementById("costTotal").textContent  = fmt(s.totalCost, 0);
+      document.getElementById("costPerNm").textContent  = s.totalNm  > 0 ? fmtMoney(s.totalCost / s.totalNm) + "/nm"   : "—";
+      document.getElementById("costPerHr").textContent  = s.totalHours > 0 ? fmtMoney(s.totalCost / s.totalHours) + "/hr" : "—";
+    }
+
+    function renderEntries() {
+      const list = document.getElementById("entryList");
+      const sorted = [...state.entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      document.getElementById("entryCount").textContent =
+        sorted.length ? `${sorted.length} entries` : "";
+
+      if (!sorted.length) {
+        list.innerHTML = `
+          <div class="empty">
+            <div class="icon">⛽</div>
+            No fill-ups logged yet.
+            <div style="margin-top:8px; font-size:12px;">Add your first one above.</div>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = sorted.map(e => {
+        const d = new Date(e.timestamp);
+        const dateStr = isNaN(d) ? e.timestamp : d.toLocaleString(undefined, {
+          year: "numeric", month: "short", day: "numeric",
+          hour: "2-digit", minute: "2-digit"
+        });
+        const queuedBadge = e.queued ? `<span class="badge queued">queued</span>` : "";
+        const where = e.location ? `<span>📍 ${escapeHtml(e.location)}</span>` : "";
+        return `
+          <div class="entry" data-id="${e.id}">
+            <div class="top">
+              <span class="date">${dateStr}</span>
+              ${queuedBadge}
+            </div>
+            <div class="where">${where}</div>
+            <div class="amt">
+              <div class="gals">${fmt(e.gallons, 2)} gal</div>
+              <div class="cost">${fmtMoney(e.totalCost)} · ${fmtMoney(e.pricePerGal)}/gal</div>
+            </div>
+            <div class="stats">
+              ${e.engineHours ? `<span>⏱ <b>Engine:</b> ${fmt(e.engineHours, 1)} h</span>` : ""}
+              ${e.tripHours   ? `<span>🛥 <b>Trip:</b> ${fmt(e.tripHours, 1)} h</span>`   : ""}
+              ${e.distance    ? `<span>📏 <b>Dist:</b> ${fmt(e.distance, 1)} nm</span>`  : ""}
+              ${e.notes       ? `<span title="${escapeHtml(e.notes)}">📝 <b>Note:</b> ${escapeHtml(e.notes.slice(0, 40))}${e.notes.length > 40 ? "…" : ""}</span>` : ""}
+            </div>
+            <div class="actions">
+              <button data-act="delete">🗑 Delete</button>
+            </div>
+          </div>`;
+      }).join("");
+
+      // Wire up delete
+      list.querySelectorAll(".entry").forEach(el => {
+        el.querySelector('[data-act="delete"]').addEventListener("click", () => {
+          const id = el.dataset.id;
+          deleteEntry(id);
+        });
+      });
+    }
+
+    function renderCharts() {
+      const s = calcStats(state.entries);
+      const perFill = s.perFill;
+
+      // Chart.js global theming
+      if (!window.__chartFonts) {
+        const c = getComputedStyle(document.documentElement);
+        Chart.defaults.color = c.getPropertyValue("--text-dim").trim() || "#9fb3c8";
+        Chart.defaults.borderColor = "rgba(255,255,255,0.10)";
+        Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+        window.__chartFonts = true;
+      }
+
+      const ctx1 = document.getElementById("consumptionChart").getContext("2d");
+      if (state.charts.consumption) state.charts.consumption.destroy();
+      state.charts.consumption = new Chart(ctx1, {
+        type: "bar",
+        data: {
+          labels: perFill.map(p => new Date(p.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })),
+          datasets: [
+            {
+              label: "Gallons",
+              data: perFill.map(p => p.gallons),
+              backgroundColor: "rgba(245,158,11,0.7)",
+              borderColor: "#f59e0b",
+              borderWidth: 1,
+              yAxisID: "y",
+            },
+            {
+              type: "line",
+              label: "GPH",
+              data: perFill.map(p => p.gph),
+              borderColor: "#22d3ee",
+              backgroundColor: "rgba(34,211,238,0.15)",
+              tension: 0.3,
+              yAxisID: "y1",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: "#9fb3c8" } },
+            tooltip: { mode: "index", intersect: false },
+          },
+          scales: {
+            x: { ticks: { color: "#9fb3c8" }, grid: { color: "rgba(255,255,255,0.05)" } },
+            y: {
+              position: "left",
+              beginAtZero: true,
+              ticks: { color: "#9fb3c8" },
+              grid: { color: "rgba(255,255,255,0.05)" },
+              title: { display: true, text: "Gallons", color: "#9fb3c8" },
+            },
+            y1: {
+              position: "right",
+              beginAtZero: true,
+              ticks: { color: "#22d3ee" },
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "Gal / hr", color: "#22d3ee" },
+            },
+          },
+        },
+      });
+
+      const ctx2 = document.getElementById("costChart").getContext("2d");
+      if (state.charts.cost) state.charts.cost.destroy();
+      state.charts.cost = new Chart(ctx2, {
+        type: "line",
+        data: {
+          labels: perFill.map(p => new Date(p.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })),
+          datasets: [
+            {
+              label: "Price / Gallon",
+              data: perFill.map(p => p.price),
+              borderColor: "#fbbf24",
+              backgroundColor: "rgba(251,191,36,0.18)",
+              fill: true,
+              tension: 0.3,
+            },
+            {
+              label: "Trip Cost",
+              data: perFill.map(p => p.cost),
+              borderColor: "#a855f7",
+              backgroundColor: "rgba(168,85,247,0.12)",
+              fill: true,
+              tension: 0.3,
+              yAxisID: "y1",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: "#9fb3c8" } },
+          },
+          scales: {
+            x: { ticks: { color: "#9fb3c8" }, grid: { color: "rgba(255,255,255,0.05)" } },
+            y: {
+              position: "left",
+              beginAtZero: true,
+              ticks: { color: "#9fb3c8" },
+              grid: { color: "rgba(255,255,255,0.05)" },
+              title: { display: true, text: "Per Gallon", color: "#9fb3c8" },
+            },
+            y1: {
+              position: "right",
+              beginAtZero: true,
+              ticks: { color: "#a855f7" },
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "Total", color: "#a855f7" },
+            },
+          },
+        },
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    // -------- Add / delete --------
+    function prefillForm() {
+      const now = new Date();
+      const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 16);
+      const fDate = document.getElementById("fDate");
+      if (!fDate.value) fDate.value = localISOTime;
+
+      // Auto-suggest engine hours = last logged + something
+      const last = [...state.entries]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      if (last && last.engineHours && !document.getElementById("fEngineHours").value) {
+        document.getElementById("fEngineHours").value = (last.engineHours + 1).toFixed(1);
+      }
+      // Auto-suggest current tank as default for gallons
+      if (!document.getElementById("fGallons").value && state.settings.currentGallons) {
+        document.getElementById("fGallons").value = "";
+      }
+    }
+
+    function clearForm() {
+      ["fGallons", "fPrice", "fCost", "fEngineHours", "fLocation", "fNotes"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+    }
+
+    async function saveEntry() {
+      const f = {
+        date:        document.getElementById("fDate").value,
+        gallons:     Number(document.getElementById("fGallons").value),
+        price:       Number(document.getElementById("fPrice").value),
+        cost:        Number(document.getElementById("fCost").value),
+        engineHours: Number(document.getElementById("fEngineHours").value),
+        location:    document.getElementById("fLocation").value.trim(),
+        notes:       document.getElementById("fNotes").value.trim(),
+      };
+      if (!f.date || !f.gallons) {
+        showToast("Date and gallons are required", "error");
+        return;
+      }
+      // Auto total cost
+      if (!f.cost && f.price) f.cost = f.gallons * f.price;
+
+      // Compute trip_hours (since last entry)
+      const last = [...state.entries]
+        .filter(e => new Date(e.timestamp) < new Date(f.date) && e.engineHours)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      const tripHours = (last && f.engineHours) ? +(f.engineHours - last.engineHours).toFixed(1) : 0;
+
+      const entry = {
+        category:       "fuel",
+        timestamp:      new Date(f.date).toISOString(),
+        gallons:        f.gallons,
+        unit:           "gallons",
+        price_per_gallon: f.price,
+        total_cost:     +f.cost.toFixed(2),
+        engine_hours:   f.engineHours || 0,
+        trip_hours:     tripHours,
+        distance_nm:    0,
+        location:       f.location,
+        lat:            0,
+        lon:            0,
+        notes:          f.notes,
+      };
+
+      // Locally-stamped entry so the UI updates immediately
+      const localId = "local-" + Math.random().toString(36).slice(2);
+      const localEntry = { ...entry, id: localId, _queued: true, queued: true };
+      state.entries.push(localEntry);
+      saveLocalEntries();
+      renderAll();
+      clearForm();
+      showToast("Entry saved locally", "ok");
+
+      // Try to push to API
+      if (apiBase() && state.online) {
+        try {
+          await apiCreate(entry);
+          // Mark synced
+          const idx = state.entries.findIndex(e => e.id === localId);
+          if (idx >= 0) {
+            state.entries[idx].queued = false;
+            saveLocalEntries();
+            renderAll();
+          }
+        } catch (e) {
+          // Queue for later
+          state.queue.push({ localId, payload: entry, attempts: 1, queuedAt: Date.now() });
+          saveQueue();
+          setStatus("queued", `${state.queue.length} queued`);
+          showToast(`Offline — queued (${state.queue.length})`, "error");
+        }
+      } else if (!apiBase()) {
+        showToast("Saved locally (no API configured)", "ok");
+      } else {
+        state.queue.push({ localId, payload: entry, attempts: 1, queuedAt: Date.now() });
+        saveQueue();
+        setStatus("queued", `${state.queue.length} queued`);
+        showToast(`Offline — queued (${state.queue.length})`, "error");
+      }
+    }
+
+    async function deleteEntry(id) {
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+      if (!confirm("Delete this fuel entry?")) return;
+
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveLocalEntries();
+      renderAll();
+      showToast("Entry deleted", "ok");
+
+      // If we have a server id and an API, attempt DELETE
+      if (entry.id && !String(entry.id).startsWith("local-") && apiBase() && state.online) {
+        try {
+          await fetch(apiUrl("/api/log?id=" + encodeURIComponent(entry.id)), { method: "DELETE" });
+        } catch (e) {
+          console.warn("Delete on server failed:", e);
+        }
+      } else {
+        // Remove from queue if it was queued
+        state.queue = state.queue.filter(q => q.localId !== id);
+        saveQueue();
+      }
+    }
+
+    // -------- Toast --------
+    let toastTimer = null;
+    function showToast(msg, kind) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.className = "toast show" + (kind ? " " + kind : "");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.className = "toast"; }, 2400);
+    }
+
+    // -------- Settings modal --------
+    function openSettings() {
+      document.getElementById("sTankCap").value = state.settings.tankCapacity;
+      document.getElementById("sCurrent").value = state.settings.currentGallons;
+      document.getElementById("sUnits").value = state.settings.defaultUnits;
+      document.getElementById("sCurrency").value = state.settings.currency;
+      document.getElementById("sApiBase").value = state.settings.apiBase;
+      document.getElementById("sAvgSpeed").value = state.settings.avgSpeedKnots;
+      document.getElementById("settingsModal").classList.add("show");
+    }
+    function closeSettings() {
+      document.getElementById("settingsModal").classList.remove("show");
+    }
+    function saveSettingsForm() {
+      state.settings.tankCapacity   = Number(document.getElementById("sTankCap").value) || 0;
+      state.settings.currentGallons = Number(document.getElementById("sCurrent").value) || 0;
+      state.settings.defaultUnits   = document.getElementById("sUnits").value;
+      state.settings.currency       = document.getElementById("sCurrency").value || "$";
+      state.settings.apiBase        = document.getElementById("sApiBase").value.trim().replace(/\/+$/, "");
+      state.settings.avgSpeedKnots  = Number(document.getElementById("sAvgSpeed").value) || 0;
+      saveSettings();
+      closeSettings();
+      renderAll();
+      loadEntries();   // re-sync from API if changed
+      showToast("Settings saved", "ok");
+    }
+
+    // -------- Export / Import --------
+    function exportJson() {
+      const data = JSON.stringify({
+        settings: state.settings,
+        entries:  state.entries,
+        exportedAt: new Date().toISOString(),
+        schema: "shiplog-fuel/v1",
+      }, null, 2);
+      const blob = new Blob([data], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "fuel-tracker-export-" + new Date().toISOString().slice(0, 10) + ".json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("Exported", "ok");
+    }
+    function importJson(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const obj = JSON.parse(e.target.result);
+          if (obj.entries && Array.isArray(obj.entries)) {
+            // Merge with existing (de-dup by timestamp+gallons)
+            const sig = s => s.timestamp + "|" + s.gallons;
+            const seen = new Set(state.entries.map(sig));
+            const merged = [...state.entries];
+            for (const en of obj.entries) {
+              const n = normalizeEntry(en);
+              if (!seen.has(sig(n))) { merged.push(n); seen.add(sig(n)); }
+            }
+            state.entries = merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            saveLocalEntries();
+            renderAll();
+            showToast(`Imported ${obj.entries.length} entries`, "ok");
+          }
+          if (obj.settings) {
+            state.settings = { ...DEFAULTS, ...obj.settings };
+            saveSettings();
+            renderAll();
+          }
+        } catch (err) {
+          showToast("Import failed: " + err.message, "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+    function clearAll() {
+      if (!confirm("Delete ALL fuel entries locally? (Server entries are not affected.)")) return;
+      state.entries = [];
+      state.queue = [];
+      saveLocalEntries();
+      saveQueue();
+      renderAll();
+      showToast("Cleared local data", "ok");
+    }
+
+    // -------- Wiring --------
+    function wire() {
+      document.getElementById("btnSave").addEventListener("click", saveEntry);
+      document.getElementById("btnClear").addEventListener("click", clearForm);
+      document.getElementById("btnUsePos").addEventListener("click", () => {
+        if (!navigator.geolocation) { showToast("No geolocation", "error"); return; }
+        navigator.geolocation.getCurrentPosition(pos => {
+          // Reverse-geocode is not done here; user fills location manually.
+          document.getElementById("fLocation").focus();
+          showToast(`Position: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`, "ok");
+        }, err => showToast("GPS failed: " + err.message, "error"));
+      });
+      document.getElementById("btnRefresh").addEventListener("click", () => loadEntries());
+
+      document.getElementById("btnSettings").addEventListener("click", openSettings);
+      document.getElementById("btnCloseSettings").addEventListener("click", closeSettings);
+      document.getElementById("btnSaveSettings").addEventListener("click", saveSettingsForm);
+      document.getElementById("settingsModal").addEventListener("click", (e) => {
+        if (e.target.id === "settingsModal") closeSettings();
+      });
+
+      document.getElementById("btnExport").addEventListener("click", exportJson);
+      document.getElementById("btnImport").addEventListener("click", () => {
+        document.getElementById("fileImport").click();
+      });
+      document.getElementById("fileImport").addEventListener("change", (e) => {
+        const f = e.target.files[0];
+        if (f) importJson(f);
+        e.target.value = "";
+      });
+      document.getElementById("btnClearAll").addEventListener("click", clearAll);
+
+      // Auto-cost: when gallons or price changes, fill total
+      const autoCost = () => {
+        const g = Number(document.getElementById("fGallons").value);
+        const p = Number(document.getElementById("fPrice").value);
+        const c = document.getElementById("fCost");
+        if (g > 0 && p > 0 && !c.dataset.userEdited) {
+          c.value = (g * p).toFixed(2);
+        }
+      };
+      ["fGallons", "fPrice"].forEach(id => {
+        document.getElementById(id).addEventListener("input", autoCost);
+      });
+      document.getElementById("fCost").addEventListener("input", (e) => {
+        e.target.dataset.userEdited = "1";
+      });
+
+      // Collapse/expand the add panel
+      const addPanel = document.getElementById("addPanel");
+      document.getElementById("addHead").addEventListener("click", () => {
+        addPanel.classList.toggle("collapsed");
+      });
+
+      // Network status
+      window.addEventListener("online",  () => { state.online = true;  loadEntries(); });
+      window.addEventListener("offline", () => { state.online = false; setStatus("offline", "offline"); });
+
+      // Periodic background sync
+      setInterval(() => {
+        if (state.online && apiBase()) loadEntries();
+      }, (state.settings.refreshSeconds || 120) * 1000);
+    }
+
+    // -------- Init --------
+    document.addEventListener("DOMContentLoaded", () => {
+      wire();
+      prefillForm();
+      loadEntries();
+    });
+  })();
+  </script>
+</body>
+</html>

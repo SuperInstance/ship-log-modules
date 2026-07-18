@@ -1,0 +1,12 @@
+{
+  "name": "maintenance-scheduler",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Vessel maintenance tracking — engine hours, haul-out schedule, zinc replacement, oil changes, and inspection reminders",
+  "author": "SuperInstance",
+  "tags": ["maintenance", "engine", "schedule", "safety"],
+  "config": {
+    "tab": { "label": "🔧 Maintenance", "icon": "🔧" }
+  },
+  "permissions": ["read:logs", "write:logs"]
+}

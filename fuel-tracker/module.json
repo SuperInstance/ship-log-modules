@@ -1,0 +1,37 @@
+{
+  "name": "fuel-tracker",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Track fuel consumption, calculate MPG, predict range based on tank levels",
+  "author": "SuperInstance",
+  "homepage": "https://github.com/SuperInstance/ship-log-fuel",
+  "license": "MIT",
+  "tags": ["fuel", "range", "efficiency"],
+  "config": {
+    "tab": { "label": "⛽ Fuel", "icon": "⛽" },
+    "entry": "index.html",
+    "scripts": [
+      "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+    ],
+    "styles": []
+  },
+  "requires": {
+    "ship-log-search": ">=0.2.0"
+  },
+  "endpoints": {
+    "create": "POST /api/log",
+    "list":   "GET /api/logs?category=fuel",
+    "stats":  "GET /api/stats?category=fuel"
+  },
+  "category": "fuel",
+  "permissions": ["read:logs", "write:logs"],
+  "settings": {
+    "defaultUnits": "gallons",
+    "defaultCurrency": "USD",
+    "tankCapacityGallons": 100,
+    "refreshSeconds": 120,
+    "cacheKey": "shiplog.fuel.entries",
+    "cacheTTLms": 300000,
+    "offlineQueueKey": "shiplog.fuel.queue"
+  }
+}

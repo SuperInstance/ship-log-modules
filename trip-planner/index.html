@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧭 Trip Planner</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1f2937;
+    --accent: #8b5cf6;
+    --accent-dim: #6d28d9;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --crit: #ef4444;
+    --info: #0ea5e9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+
+  /* Trip Header */
+  .trip-header {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .trip-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .trip-title h2 { font-size: 1.25rem; }
+  .trip-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .meta-item {
+    text-align: center;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .meta-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .meta-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .meta-value.accent { color: var(--accent); }
+  .meta-value.warn { color: var(--warn); }
+  .meta-value.ok { color: var(--ok); }
+
+  /* Waypoint List */
+  .waypoints {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .section-header h3 { font-size: 1rem; }
+  .wp-list { list-style: none; }
+  .wp-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: all 0.15s;
+  }
+  .wp-item:hover { border-color: var(--accent-dim); }
+  .wp-number {
+    width: 32px;
+    height: 32px;
+    background: var(--accent-dim);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  .wp-info { font-size: 0.875rem; }
+  .wp-name { font-weight: 500; margin-bottom: 2px; }
+  .wp-coords { color: var(--text-dim); font-size: 0.75rem; }
+  .wp-distance { font-size: 0.875rem; color: var(--info); text-align: right; }
+  .wp-eta { font-size: 0.75rem; color: var(--text-dim); text-align: right; }
+  .wp-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .wp-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.15s;
+  }
+  .wp-btn:hover { background: var(--accent-dim); color: white; border-color: var(--accent); }
+  .wp-btn.delete:hover { background: var(--crit); border-color: var(--crit); }
+
+  /* Add Waypoint Form */
+  .add-wp {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+  .btn-add {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  .btn-add:hover { background: var(--accent-dim); }
+
+  /* Crew */
+  .crew-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .crew-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .crew-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+  }
+  .crew-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .crew-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .crew-remove:hover { color: var(--crit); }
+  .crew-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .crew-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    flex: 1;
+    max-width: 200px;
+  }
+
+  /* Checklist */
+  .checklist {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .check-item.done { color: var(--text-dim); text-decoration: line-through; }
+  .check-remove {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .check-remove:hover { color: var(--crit); }
+  .check-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .btn:hover { background: var(--accent-dim); }
+  .btn.secondary {
+    background: var(--border);
+    color: var(--text-dim);
+  }
+  .btn.secondary:hover { background: var(--accent-dim); color: white; }
+
+  .empty-msg {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 20px;
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 600px) {
+    .add-wp { grid-template-columns: 1fr 1fr; }
+    .btn-add { grid-column: 1 / -1; }
+    .wp-item { grid-template-columns: auto 1fr; }
+    .wp-distance, .wp-eta { grid-column: 2; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Active Trip Display -->
+<div id="trip-display"></div>
+
+<!-- Waypoints -->
+<div class="waypoints">
+  <div class="section-header">
+    <h3>📍 Waypoints</h3>
+    <button class="btn secondary" onclick="newTrip()" id="new-trip-btn" style="display:none">New Trip</button>
+  </div>
+  <ul class="wp-list" id="wp-list"></ul>
+  <div class="add-wp">
+    <div class="form-group">
+      <label>Location Name</label>
+      <input class="form-input" id="wp-name" placeholder="Cape Edgecumbe, shelter cove...">
+    </div>
+    <div class="form-group">
+      <label>Latitude</label>
+      <input class="form-input" id="wp-lat" placeholder="56.8" type="number" step="0.0001">
+    </div>
+    <div class="form-group">
+      <label>Longitude</label>
+      <input class="form-input" id="wp-lon" placeholder="-135.5" type="number" step="0.0001">
+    </div>
+    <div class="form-group">
+      <label>Speed (kts)</label>
+      <input class="form-input" id="wp-speed" placeholder="8" type="number" step="0.5" value="8">
+    </div>
+    <button class="btn-add" onclick="addWaypoint()">Add</button>
+  </div>
+</div>
+
+<!-- Crew -->
+<div class="crew-section">
+  <div class="section-header">
+    <h3>👥 Crew</h3>
+  </div>
+  <div class="crew-list" id="crew-list"></div>
+  <div class="crew-add">
+    <input class="crew-input" id="crew-name" placeholder="Add crew member..." onkeypress="if(event.key==='Enter')addCrew()">
+    <button class="btn secondary" onclick="addCrew()">Add</button>
+  </div>
+</div>
+
+<!-- Pre-departure Checklist -->
+<div class="checklist">
+  <div class="section-header">
+    <h3>✅ Pre-Departure Checklist</h3>
+  </div>
+  <div id="checklist"></div>
+  <div class="check-add">
+    <input class="crew-input" id="check-input" placeholder="Add checklist item..." onkeypress="if(event.key==='Enter')addCheckItem()">
+    <button class="btn secondary" onclick="addCheckItem()">Add</button>
+  </div>
+</div>
+
+<!-- Actions -->
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn" onclick="saveTrip()">💾 Save Trip</button>
+  <button class="btn secondary" onclick="exportTrip()">📋 Export</button>
+  <button class="btn secondary" onclick="clearTrip()">🗑 Clear</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Trip Planner Module
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'trip_planner';
+const DEFAULT_CHECKLIST = [
+  'Check weather forecast',
+  'File float plan',
+  'Test VHF radio',
+  'Check fuel level',
+  'Inspect hull and through-hulls',
+  'Test bilge pumps',
+  'Check life jackets and PFDs',
+  'Verify flares and emergency kit',
+  'Check engine oil and coolant',
+  'Test navigation lights',
+];
+
+let trip = loadTrip();
+
+// ── Persistence ─────────────────────────────────────────
+function loadTrip() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  return {
+    name: 'New Trip',
+    date: new Date().toISOString().split('T')[0],
+    departure: '',
+    waypoints: [],
+    crew: [],
+    checklist: DEFAULT_CHECKLIST.map((text, i) => ({ id: i, text, done: false })),
+    speed: 8,
+  };
+}
+
+function saveTrip() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+  showTripMeta();
+  alert('Trip saved locally');
+}
+
+function clearTrip() {
+  if (!confirm('Clear all trip data?')) return;
+  trip = loadTrip();
+  trip.name = 'New Trip';
+  trip.waypoints = [];
+  trip.crew = [];
+  trip.checklist = DEFAULT_CHECKLIST.map((text, i) => ({ id: i, text, done: false }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+  render();
+}
+
+// ── Distance Calculations ───────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3440.065; // Earth radius in nautical miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatNm(nm) {
+  if (nm < 10) return nm.toFixed(1) + ' nm';
+  return nm.toFixed(0) + ' nm';
+}
+
+function formatTime(hours) {
+  if (hours < 1) return Math.round(hours * 60) + ' min';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}h ${m}m`;
+}
+
+// ── Waypoints ───────────────────────────────────────────
+function addWaypoint() {
+  const name = document.getElementById('wp-name').value.trim() || `Waypoint ${trip.waypoints.length + 1}`;
+  const lat = parseFloat(document.getElementById('wp-lat').value);
+  const lon = parseFloat(document.getElementById('wp-lon').value);
+  const speed = parseFloat(document.getElementById('wp-speed').value) || trip.speed;
+
+  if (isNaN(lat) || isNaN(lon)) {
+    alert('Enter valid latitude and longitude');
+    return;
+  }
+
+  trip.waypoints.push({ name, lat, lon, speed });
+  trip.speed = speed;
+
+  document.getElementById('wp-name').value = '';
+  document.getElementById('wp-lat').value = '';
+  document.getElementById('wp-lon').value = '';
+
+  saveTrip();
+  render();
+}
+
+function removeWaypoint(idx) {
+  trip.waypoints.splice(idx, 1);
+  saveTrip();
+  render();
+}
+
+function moveWaypoint(idx, dir) {
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= trip.waypoints.length) return;
+  [trip.waypoints[idx], trip.waypoints[newIdx]] = [trip.waypoints[newIdx], trip.waypoints[idx]];
+  saveTrip();
+  render();
+}
+
+// ── Crew ────────────────────────────────────────────────
+function addCrew() {
+  const input = document.getElementById('crew-name');
+  const name = input.value.trim();
+  if (!name) return;
+  trip.crew.push(name);
+  input.value = '';
+  saveTrip();
+  renderCrew();
+}
+
+function removeCrew(idx) {
+  trip.crew.splice(idx, 1);
+  saveTrip();
+  renderCrew();
+}
+
+function initials(name) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+// ── Checklist ───────────────────────────────────────────
+function addCheckItem() {
+  const input = document.getElementById('check-input');
+  const text = input.value.trim();
+  if (!text) return;
+  trip.checklist.push({ id: Date.now(), text, done: false });
+  input.value = '';
+  saveTrip();
+  renderChecklist();
+}
+
+function toggleCheck(id) {
+  const item = trip.checklist.find(c => c.id === id);
+  if (item) item.done = !item.done;
+  saveTrip();
+  renderChecklist();
+}
+
+function removeCheck(id) {
+  trip.checklist = trip.checklist.filter(c => c.id !== id);
+  saveTrip();
+  renderChecklist();
+}
+
+// ── Render ──────────────────────────────────────────────
+function render() {
+  showTripMeta();
+  renderWaypoints();
+  renderCrew();
+  renderChecklist();
+}
+
+function showTripMeta() {
+  let totalDist = 0;
+  let totalTime = 0;
+
+  for (let i = 1; i < trip.waypoints.length; i++) {
+    const d = haversine(
+      trip.waypoints[i-1].lat, trip.waypoints[i-1].lon,
+      trip.waypoints[i].lat, trip.waypoints[i].lon
+    );
+    totalDist += d;
+    totalTime += d / (trip.waypoints[i].speed || trip.speed);
+  }
+
+  const checkDone = trip.checklist.filter(c => c.done).length;
+  const checkTotal = trip.checklist.length;
+
+  document.getElementById('trip-display').innerHTML = `
+    <div class="trip-header">
+      <div class="trip-title">
+        <h2>🧭 ${trip.name}</h2>
+        <div>
+          <input class="form-input" style="display:inline-block;width:auto" value="${trip.date}" type="date" onchange="updateDate(this.value)">
+        </div>
+      </div>
+      <div class="trip-meta">
+        <div class="meta-item">
+          <div class="meta-label">Waypoints</div>
+          <div class="meta-value accent">${trip.waypoints.length}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Distance</div>
+          <div class="meta-value accent">${formatNm(totalDist)}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Est. Travel</div>
+          <div class="meta-value warn">${totalTime > 0 ? formatTime(totalTime) : '—'}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Crew</div>
+          <div class="meta-value">${trip.crew.length}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Checklist</div>
+          <div class="meta-value ${checkDone === checkTotal ? 'ok' : ''}">${checkDone}/${checkTotal}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Fuel Est.</div>
+          <div class="meta-value warn">${totalDist > 0 ? (totalDist / 3).toFixed(0) + ' gal' : '—'}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderWaypoints() {
+  const list = document.getElementById('wp-list');
+
+  if (trip.waypoints.length === 0) {
+    list.innerHTML = '<div class="empty-msg">No waypoints. Add your route above.</div>';
+    return;
+  }
+
+  let cumulativeDist = 0;
+  let cumulativeTime = 0;
+
+  list.innerHTML = trip.waypoints.map((wp, i) => {
+    let dist = 0;
+    let eta = '';
+    if (i > 0) {
+      const prev = trip.waypoints[i-1];
+      dist = haversine(prev.lat, prev.lon, wp.lat, wp.lon);
+      cumulativeDist += dist;
+      const speed = wp.speed || trip.speed;
+      cumulativeTime += dist / speed;
+    }
+    return `
+      <li class="wp-item">
+        <div class="wp-number">${i + 1}</div>
+        <div class="wp-info">
+          <div class="wp-name">${wp.name}</div>
+          <div class="wp-coords">${wp.lat.toFixed(4)}°, ${wp.lon.toFixed(4)}°</div>
+        </div>
+        <div class="wp-distance">
+          ${i > 0 ? `+${formatNm(dist)}` : 'Start'}
+          <div style="font-size:0.7rem;color:var(--text-dim)">${formatNm(cumulativeDist)} total</div>
+        </div>
+        <div class="wp-actions">
+          <button class="wp-btn" onclick="moveWaypoint(${i},-1)" title="Move up">↑</button>
+          <button class="wp-btn" onclick="moveWaypoint(${i},1)" title="Move down">↓</button>
+          <button class="wp-btn delete" onclick="removeWaypoint(${i})" title="Remove">×</button>
+        </div>
+      </li>`;
+  }).join('');
+}
+
+function renderCrew() {
+  const list = document.getElementById('crew-list');
+  if (trip.crew.length === 0) {
+    list.innerHTML = '<div class="empty-msg">No crew added.</div>';
+    return;
+  }
+  list.innerHTML = trip.crew.map((name, i) => `
+    <div class="crew-chip">
+      <div class="crew-avatar">${initials(name)}</div>
+      ${name}
+      <button class="crew-remove" onclick="removeCrew(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function renderChecklist() {
+  const list = document.getElementById('checklist');
+  if (trip.checklist.length === 0) {
+    list.innerHTML = '<div class="empty-msg">No checklist items.</div>';
+    return;
+  }
+  list.innerHTML = trip.checklist.map(item => `
+    <div class="check-item ${item.done ? 'done' : ''}">
+      <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleCheck(${item.id})">
+      <span>${item.text}</span>
+      <button class="check-remove" onclick="removeCheck(${item.id})">×</button>
+    </div>
+  `).join('');
+}
+
+function updateDate(date) {
+  trip.date = date;
+  saveTrip();
+}
+
+function newTrip() {
+  const name = prompt('Trip name:', 'Fishing Trip ' + new Date().toLocaleDateString());
+  if (name) {
+    trip.name = name;
+    saveTrip();
+    render();
+  }
+}
+
+function exportTrip() {
+  let totalDist = 0;
+  let totalTime = 0;
+  for (let i = 1; i < trip.waypoints.length; i++) {
+    const d = haversine(
+      trip.waypoints[i-1].lat, trip.waypoints[i-1].lon,
+      trip.waypoints[i].lat, trip.waypoints[i].lon
+    );
+    totalDist += d;
+    totalTime += d / (trip.waypoints[i].speed || trip.speed);
+  }
+
+  let text = `TRIP PLAN: ${trip.name}\n`;
+  text += `Date: ${trip.date}\n`;
+  text += `Distance: ${formatNm(totalDist)}\n`;
+  text += `Est. Travel Time: ${totalTime > 0 ? formatTime(totalTime) : 'N/A'}\n`;
+  text += `Crew: ${trip.crew.join(', ') || 'None'}\n\n`;
+  text += `WAYPOINTS:\n`;
+  trip.waypoints.forEach((wp, i) => {
+    text += `  ${i+1}. ${wp.name} (${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)})\n`;
+  });
+  text += `\nCHECKLIST:\n`;
+  trip.checklist.forEach(c => {
+    text += `  [${c.done ? 'x' : ' '}] ${c.text}\n`;
+  });
+
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trip-plan-${trip.date}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Init ────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

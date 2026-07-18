@@ -1,0 +1,12 @@
+{
+  "name": "trip-planner",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Plan fishing trips — waypoints, estimated travel times, fuel needs, tide windows, and crew assignments",
+  "author": "SuperInstance",
+  "tags": ["planning", "navigation", "trip", "waypoints"],
+  "config": {
+    "tab": { "label": "🧭 Trip", "icon": "🧭" }
+  },
+  "permissions": ["read:logs", "write:logs"]
+}

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔧 Maintenance Scheduler</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1f2937;
+    --accent: #f97316;
+    --accent-dim: #c2410c;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --crit: #ef4444;
+    --info: #0ea5e9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+
+  /* Status Grid */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .task-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--info);
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .task-card.due { border-left-color: var(--warn); }
+  .task-card.overdue { border-left-color: var(--crit); }
+  .task-card.done { border-left-color: var(--ok); opacity: 0.7; }
+
+  .task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+  }
+  .task-name {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .task-icon { font-size: 1.25rem; }
+  .task-status {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .status-ok { background: rgba(16,185,129,0.15); color: var(--ok); }
+  .status-warn { background: rgba(245,158,11,0.15); color: var(--warn); }
+  .status-crit { background: rgba(239,68,68,0.15); color: var(--crit); }
+
+  .task-detail {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .task-progress {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .task-progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .progress-ok { background: var(--ok); }
+  .progress-warn { background: var(--warn); }
+  .progress-crit { background: var(--crit); }
+
+  .task-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .task-btn {
+    background: var(--border);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.15s;
+  }
+  .task-btn:hover { background: var(--accent-dim); color: white; border-color: var(--accent); }
+  .task-btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .task-btn.primary:hover { background: var(--accent-dim); }
+
+  /* Add Task Form */
+  .add-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .add-section h2 { font-size: 1rem; margin-bottom: 12px; }
+  .add-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+  }
+  .form-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+
+  .btn-add {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  .btn-add:hover { background: var(--accent-dim); }
+
+  /* Engine Hours Input */
+  .engine-hours-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .engine-hours-display {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .engine-hours-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .engine-hours-label {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .engine-hours-update {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .engine-hours-input {
+    width: 100px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 1rem;
+    text-align: right;
+  }
+
+  /* Task Type Icons */
+  .icon-oil { color: #84cc16; }
+  .icon-zinc { color: #06b6d4; }
+  .icon-haulout { color: #8b5cf6; }
+  .icon-inspect { color: #f59e0b; }
+  .icon-engine { color: #ef4444; }
+  .icon-safety { color: #ec4899; }
+  .icon-custom { color: #0ea5e9; }
+
+  /* History */
+  .history-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .history-section h2 { font-size: 1rem; margin-bottom: 12px; }
+  .history-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-date { color: var(--text-dim); }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .add-form { grid-template-columns: 1fr 1fr; }
+    .btn-add { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Engine Hours Tracker -->
+<div class="engine-hours-bar">
+  <div class="engine-hours-display">
+    <span class="engine-hours-value" id="engine-hours">0</span>
+    <span class="engine-hours-label">Engine Hours</span>
+  </div>
+  <div class="engine-hours-update">
+    <input type="number" class="engine-hours-input" id="hours-input" placeholder="Update hours" step="0.1">
+    <button class="task-btn primary" onclick="updateEngineHours()">Update</button>
+  </div>
+</div>
+
+<!-- Add Task -->
+<div class="add-section">
+  <h2>➕ Add Maintenance Task</h2>
+  <div class="add-form">
+    <div class="form-group">
+      <label>Task Name</label>
+      <input class="form-input" id="task-name" placeholder="Oil change, zinc replacement...">
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select class="form-input" id="task-type">
+        <option value="engine">🔧 Engine</option>
+        <option value="oil">🛢️ Oil Change</option>
+        <option value="zinc">⚙️ Zinc</option>
+        <option value="haulout">🚢 Haul-out</option>
+        <option value="inspect">🔍 Inspection</option>
+        <option value="safety">🦺 Safety</option>
+        <option value="custom">📋 Custom</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Interval (hrs)</label>
+      <input class="form-input" id="task-hours" type="number" placeholder="100" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>Interval (days)</label>
+      <input class="form-input" id="task-days" type="number" placeholder="365">
+    </div>
+    <button class="btn-add" onclick="addTask()">Add Task</button>
+  </div>
+</div>
+
+<!-- Status Grid -->
+<div class="status-grid" id="status-grid"></div>
+
+<!-- History -->
+<div class="history-section">
+  <h2>📜 Maintenance History</h2>
+  <div class="history-list" id="history-list">
+    <div style="color:var(--text-dim);text-align:center;padding:20px">No completed tasks yet</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Maintenance Scheduler — Vessel upkeep tracker
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'maint_tasks';
+const HOURS_KEY = 'maint_engine_hours';
+const HISTORY_KEY = 'maint_history';
+
+const TYPE_ICONS = {
+  engine: '🔧', oil: '🛢️', zinc: '⚙️',
+  haulout: '🚢', inspect: '🔍', safety: '🦺', custom: '📋'
+};
+
+const DEFAULT_TASKS = [
+  { name: 'Engine Oil Change', type: 'oil', intervalHours: 100, intervalDays: 365 },
+  { name: 'Transmission Fluid', type: 'engine', intervalHours: 250, intervalDays: 730 },
+  { name: 'Hull Zinc Replacement', type: 'zinc', intervalHours: 0, intervalDays: 365 },
+  { name: 'Haul-out & Bottom Paint', type: 'haulout', intervalHours: 0, intervalDays: 730 },
+  { name: 'Safety Equipment Check', type: 'safety', intervalHours: 0, intervalDays: 90 },
+  { name: 'Prop Shaft Inspection', type: 'inspect', intervalHours: 0, intervalDays: 180 },
+];
+
+// ── Storage Helpers ─────────────────────────────────────
+function loadTasks() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  // Seed defaults
+  const defaults = DEFAULT_TASKS.map((t, i) => ({
+    id: `default-${i}`,
+    ...t,
+    lastCompletedHours: 0,
+    lastCompletedDate: null,
+    createdAt: new Date().toISOString()
+  }));
+  saveTasks(defaults);
+  return defaults;
+}
+
+function saveTasks(tasks) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+function getEngineHours() {
+  return parseFloat(localStorage.getItem(HOURS_KEY) || '0');
+}
+
+function setEngineHours(hours) {
+  localStorage.setItem(HOURS_KEY, String(hours));
+}
+
+function loadHistory() {
+  const raw = localStorage.getItem(HISTORY_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  return [];
+}
+
+function addHistory(taskName, hours, date) {
+  const history = loadHistory();
+  history.unshift({ taskName, hours, date, ts: Date.now() });
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 100)));
+}
+
+// ── Render ──────────────────────────────────────────────
+function render() {
+  document.getElementById('engine-hours').textContent = getEngineHours().toFixed(1);
+  renderTasks();
+  renderHistory();
+}
+
+function renderTasks() {
+  const tasks = loadTasks();
+  const hours = getEngineHours();
+  const now = new Date();
+  const grid = document.getElementById('status-grid');
+
+  grid.innerHTML = tasks.map(task => {
+    let status = 'ok';
+    let pct = 0;
+    let statusText = 'OK';
+    let statusClass = 'status-ok';
+    let progressClass = 'progress-ok';
+    let detail = '';
+
+    // Check hour-based interval
+    if (task.intervalHours > 0) {
+      const hoursSince = hours - task.lastCompletedHours;
+      pct = Math.min(100, (hoursSince / task.intervalHours) * 100);
+      const remaining = task.intervalHours - hoursSince;
+
+      if (remaining <= 0) {
+        status = 'overdue';
+        statusText = 'OVERDUE';
+        statusClass = 'status-crit';
+        progressClass = 'progress-crit';
+        detail = `${Math.abs(remaining).toFixed(1)} hrs past due`;
+      } else if (remaining <= task.intervalHours * 0.1) {
+        status = 'due';
+        statusText = 'DUE SOON';
+        statusClass = 'status-warn';
+        progressClass = 'progress-warn';
+        detail = `${remaining.toFixed(1)} hrs remaining`;
+      } else {
+        detail = `${hoursSince.toFixed(1)} / ${task.intervalHours} hrs`;
+      }
+    }
+
+    // Check day-based interval
+    if (task.intervalDays > 0 && task.lastCompletedDate) {
+      const lastDate = new Date(task.lastCompletedDate);
+      const daysSince = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+      const dayPct = Math.min(100, (daysSince / task.intervalDays) * 100);
+      const dayRemaining = task.intervalDays - daysSince;
+
+      if (dayRemaining <= 0) {
+        status = 'overdue';
+        statusText = 'OVERDUE';
+        statusClass = 'status-crit';
+        progressClass = 'progress-crit';
+        detail = `${Math.abs(dayRemaining)} days past due`;
+      } else if (dayRemaining <= 7) {
+        status = 'due';
+        statusText = 'DUE SOON';
+        statusClass = 'status-warn';
+        progressClass = 'progress-warn';
+        detail = `${dayRemaining} days remaining`;
+      } else {
+        detail = detail ? `${detail} · ${dayRemaining} days` : `${daysSince} / ${task.intervalDays} days`;
+        pct = Math.max(pct, dayPct);
+      }
+    } else if (task.intervalDays > 0 && !task.lastCompletedDate) {
+      detail = detail ? `${detail} · Never logged` : 'Never logged';
+    }
+
+    const icon = TYPE_ICONS[task.type] || '📋';
+
+    return `
+      <div class="task-card ${status}">
+        <div class="task-header">
+          <div>
+            <span class="task-icon">${icon}</span>
+            <span class="task-name">${task.name}</span>
+          </div>
+          <span class="task-status ${statusClass}">${statusText}</span>
+        </div>
+        <div class="task-detail">${detail}</div>
+        <div class="task-progress">
+          <div class="task-progress-bar ${progressClass}" style="width:${pct}%"></div>
+        </div>
+        <div class="task-actions">
+          <button class="task-btn primary" onclick="completeTask('${task.id}')">✓ Complete</button>
+          <button class="task-btn" onclick="editTask('${task.id}')">Edit</button>
+          <button class="task-btn" onclick="deleteTask('${task.id}')">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const history = loadHistory();
+  const el = document.getElementById('history-list');
+
+  if (history.length === 0) return;
+
+  el.innerHTML = history.map(h => `
+    <div class="history-item">
+      <div>
+        <strong>${h.taskName}</strong>
+        ${h.hours > 0 ? `at ${h.hours.toFixed(1)} hrs` : ''}
+      </div>
+      <div class="history-date">${new Date(h.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+    </div>
+  `).join('');
+}
+
+// ── Actions ─────────────────────────────────────────────
+function updateEngineHours() {
+  const input = document.getElementById('hours-input');
+  const hours = parseFloat(input.value);
+  if (isNaN(hours) || hours < 0) return;
+  setEngineHours(hours);
+  input.value = '';
+  render();
+}
+
+function addTask() {
+  const name = document.getElementById('task-name').value.trim();
+  const type = document.getElementById('task-type').value;
+  const hours = parseFloat(document.getElementById('task-hours').value) || 0;
+  const days = parseFloat(document.getElementById('task-days').value) || 0;
+
+  if (!name) return;
+  if (hours === 0 && days === 0) {
+    alert('Please set an interval (hours or days)');
+    return;
+  }
+
+  const tasks = loadTasks();
+  tasks.push({
+    id: `task-${Date.now()}`,
+    name, type,
+    intervalHours: hours,
+    intervalDays: days,
+    lastCompletedHours: getEngineHours(),
+    lastCompletedDate: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  });
+
+  saveTasks(tasks);
+
+  // Clear form
+  document.getElementById('task-name').value = '';
+  document.getElementById('task-hours').value = '';
+  document.getElementById('task-days').value = '';
+
+  render();
+}
+
+function completeTask(id) {
+  const tasks = loadTasks();
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+
+  const hours = getEngineHours();
+  const now = new Date().toISOString();
+
+  addHistory(task.name, hours, now);
+
+  task.lastCompletedHours = hours;
+  task.lastCompletedDate = now;
+
+  saveTasks(tasks);
+  render();
+}
+
+function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  const tasks = loadTasks().filter(t => t.id !== id);
+  saveTasks(tasks);
+  render();
+}
+
+function editTask(id) {
+  const tasks = loadTasks();
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+
+  document.getElementById('task-name').value = task.name;
+  document.getElementById('task-type').value = task.type;
+  document.getElementById('task-hours').value = task.intervalHours || '';
+  document.getElementById('task-days').value = task.intervalDays || '';
+
+  // Delete the old one — "add" will create a new one
+  deleteTask(id);
+}
+
+// ── Init ────────────────────────────────────────────────
+render();
+
+// Listen for engine hours updates from Signal K bridge
+window.addEventListener('storage', (e) => {
+  if (e.key === HOURS_KEY) render();
+});
+</script>
+</body>
+</html>

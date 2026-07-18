@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌊 Tide Predictor</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1f2937;
+    --accent: #0ea5e9;
+    --accent-dim: #0369a1;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --tide-high: #10b981;
+    --tide-low: #f59e0b;
+    --warn: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 1.25rem; font-weight: 600; }
+  .station-select {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  select, input[type="date"] {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  select:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: var(--accent-dim); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Current Conditions Card */
+  .current-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 20px;
+    align-items: center;
+  }
+  .tide-icon {
+    font-size: 3rem;
+    width: 60px;
+    text-align: center;
+  }
+  .tide-info { flex: 1; }
+  .tide-level {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .tide-trend {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .tide-trend .rising { color: var(--tide-high); }
+  .tide-trend .falling { color: var(--tide-low); }
+  .next-event {
+    text-align: right;
+    font-size: 0.875rem;
+  }
+  .next-event .label { color: var(--text-dim); }
+  .next-event .time { font-weight: 600; font-size: 1.1rem; margin-top: 4px; }
+  .next-event .height { color: var(--text-dim); font-size: 0.8rem; }
+
+  /* Chart */
+  .chart-container {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .chart-header h2 { font-size: 1rem; font-weight: 600; }
+  .chart-nav {
+    display: flex;
+    gap: 8px;
+  }
+  .chart-nav button {
+    background: var(--border);
+    border: none;
+    color: var(--text-dim);
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .chart-nav button.active {
+    background: var(--accent);
+    color: white;
+  }
+  #tide-chart {
+    width: 100%;
+    height: 250px;
+  }
+
+  /* Predictions Table */
+  .predictions {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .predictions h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .pred-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .pred-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pred-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .pred-table tr:last-child td { border-bottom: none; }
+  .pred-type-high { color: var(--tide-high); font-weight: 600; }
+  .pred-type-low { color: var(--tide-low); font-weight: 600; }
+
+  /* Station Search */
+  .search-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .search-overlay.active { display: flex; }
+  .search-modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+  }
+  .search-modal h2 { margin-bottom: 16px; }
+  .search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+  .search-results {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .search-result {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .search-result:hover { background: var(--border); }
+  .search-result .name { font-weight: 500; }
+  .search-result .id { font-size: 0.75rem; color: var(--text-dim); }
+
+  /* Quick Stations */
+  .quick-stations {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .quick-station {
+    background: var(--border);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .quick-station:hover, .quick-station.active {
+    background: var(--accent-dim);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .status-msg {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+  }
+  .loading {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 0.875rem;
+  }
+
+  /* Tidal Current Notes */
+  .current-note {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .current-note strong { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .current-card {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    .next-event { text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌊 Tide Predictor</h1>
+  <div class="station-select">
+    <button class="btn" onclick="openStationSearch()">📍 Find Station</button>
+    <input type="date" id="date-picker">
+    <button class="btn" onclick="loadPredictions()">Update</button>
+  </div>
+</div>
+
+<!-- Quick Station Shortcuts -->
+<div class="quick-stations" id="quick-stations"></div>
+
+<!-- Error Display -->
+<div id="error-display"></div>
+
+<!-- Current Conditions -->
+<div id="current-conditions"></div>
+
+<!-- Tide Chart -->
+<div class="chart-container">
+  <div class="chart-header">
+    <h2>Tide Curve</h2>
+    <div class="chart-nav">
+      <button id="nav-today" class="active" onclick="setView('today')">Today</button>
+      <button id="nav-3day" onclick="setView('3day')">3-Day</button>
+      <button id="nav-week" onclick="setView('week')">Week</button>
+    </div>
+  </div>
+  <canvas id="tide-chart"></canvas>
+</div>
+
+<!-- Predictions Table -->
+<div class="predictions">
+  <h2>High & Low Tide Predictions</h2>
+  <div id="predictions-table"></div>
+</div>
+
+<!-- Info Note -->
+<div class="current-note">
+  <strong>Data source:</strong> NOAA CO-OPS API (tidesandcurrents.noaa.gov).
+  Predictions are official NOAA harmonic constants. Always verify with published tide tables for navigation.
+  <strong>Cache:</strong> Data cached locally for 6 hours to reduce API calls and support intermittent connectivity.
+</div>
+
+<!-- Station Search Overlay -->
+<div class="search-overlay" id="search-overlay">
+  <div class="search-modal">
+    <h2>Find Tide Station</h2>
+    <input class="search-input" id="station-search" placeholder="Station name or ID (e.g., Sitka, Juneau, 9451600)..." oninput="searchStations()">
+    <div class="search-results" id="search-results"></div>
+    <button class="btn" style="margin-top:12px;width:100%" onclick="closeStationSearch()">Cancel</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// Tide Predictor Module — NOAA CO-OPS API
+// ═══════════════════════════════════════════════════════════
+
+const API_BASE = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi-v1';
+const PRED_API = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+
+// Common Alaska / Pacific Northwest stations
+const QUICK_STATIONS = [
+  { id: '9451600', name: 'Sitka, AK' },
+  { id: '9452210', name: 'Juneau, AK' },
+  { id: '9452400', name: 'Seward, AK' },
+  { id: '9454240', name: 'Valdez, AK' },
+  { id: '9455760', name: 'Kodiak, AK' },
+  { id: '9459450', name: 'Adak, AK' },
+  { id: '9447130', name: 'Seattle, WA' },
+  { id: '9440569', name: 'Neah Bay, WA' },
+  { id: '9437540', name: 'Garibaldi, OR' },
+  { id: '9414290', name: 'San Francisco, CA' },
+];
+
+let currentStation = null;
+let tideChart = null;
+let currentView = 'today';
+const CACHE_PREFIX = 'tide_cache_';
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+// ── Init ─────────────────────────────────────────────────
+document.getElementById('date-picker').valueAsDate = new Date();
+
+// Load saved station
+const saved = localStorage.getItem('tide_station');
+if (saved) {
+  try {
+    currentStation = JSON.parse(saved);
+  } catch(e) {
+    currentStation = QUICK_STATIONS[0];
+  }
+} else {
+  currentStation = QUICK_STATIONS[0]; // Default: Sitka
+}
+saveStation(currentStation);
+renderQuickStations();
+loadPredictions();
+
+// ── Cache helpers ───────────────────────────────────────
+function cacheKey(stationId, date, days) {
+  return `${CACHE_PREFIX}${stationId}_${date}_${days}`;
+}
+
+function getCached(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    if (Date.now() - data.ts > CACHE_TTL) return null;
+    return data.value;
+  } catch(e) { return null; }
+}
+
+function setCached(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), value }));
+  } catch(e) {} // storage full — silently skip
+}
+
+// ── Quick Stations ──────────────────────────────────────
+function renderQuickStations() {
+  const container = document.getElementById('quick-stations');
+  container.innerHTML = QUICK_STATIONS.map(s => `
+    <span class="quick-station ${currentStation && currentStation.id === s.id ? 'active' : ''}"
+          onclick="selectStation(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+      ${s.name}
+    </span>
+  `).join('');
+}
+
+function selectStation(station) {
+  currentStation = station;
+  saveStation(station);
+  renderQuickStations();
+  loadPredictions();
+}
+
+function saveStation(station) {
+  localStorage.setItem('tide_station', JSON.stringify(station));
+}
+
+// ── Station Search ──────────────────────────────────────
+function openStationSearch() {
+  document.getElementById('search-overlay').classList.add('active');
+  document.getElementById('station-search').focus();
+}
+
+function closeStationSearch() {
+  document.getElementById('search-overlay').classList.remove('active');
+  document.getElementById('station-search').value = '';
+  document.getElementById('search-results').innerHTML = '';
+}
+
+async function searchStations() {
+  const query = document.getElementById('station-search').value.trim();
+  if (query.length < 2) {
+    document.getElementById('search-results').innerHTML = '';
+    return;
+  }
+
+  const results = document.getElementById('search-results');
+  results.innerHTML = '<div class="status-msg"><div class="loading"></div>Searching...</div>';
+
+  try {
+    // Try as station ID first, then name search
+    let url;
+    if (/^\d+$/.test(query)) {
+      url = `${API_BASE}/stations/${query}.json`;
+    } else {
+      url = `${API_BASE}/stations.json?name=${encodeURIComponent(query)}`;
+    }
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`NOAA API returned ${resp.status}`);
+
+    const data = await resp.json();
+    const stations = data.stations || [data.station].filter(Boolean);
+
+    if (stations.length === 0) {
+      results.innerHTML = '<div class="status-msg">No stations found.</div>';
+      return;
+    }
+
+    // Filter to water level stations
+    const tideStations = stations.filter(s =>
+      s.station_type === 'W' || s.greatlakes === 'N'
+    ).slice(0, 20);
+
+    results.innerHTML = tideStations.map(s => `
+      <div class="search-result" onclick='selectStationFromSearch(${JSON.stringify(s)})'>
+        <div class="name">${s.name}</div>
+        <div class="id">ID: ${s.id} · ${s.state || ''} · ${s.latitude || ''}, ${s.longitude || ''}</div>
+      </div>
+    `).join('') || '<div class="status-msg">No tide stations found.</div>';
+  } catch(e) {
+    results.innerHTML = `<div class="status-msg">Search error: ${e.message}</div>`;
+  }
+}
+
+function selectStationFromSearch(s) {
+  currentStation = { id: String(s.id), name: s.name };
+  saveStation(currentStation);
+  renderQuickStations();
+  closeStationSearch();
+  loadPredictions();
+}
+
+// ── View Toggle ─────────────────────────────────────────
+function setView(view) {
+  currentView = view;
+  ['today', '3day', 'week'].forEach(v => {
+    document.getElementById(`nav-${v}`).classList.toggle('active', v === view);
+  });
+  loadPredictions();
+}
+
+// ── Load Predictions ────────────────────────────────────
+async function loadPredictions() {
+  if (!currentStation) return;
+
+  const dateInput = document.getElementById('date-picker');
+  const date = dateInput.value || new Date().toISOString().split('T')[0];
+  const days = currentView === 'today' ? 1 : currentView === '3day' ? 3 : 7;
+
+  const endDate = new Date(date);
+  endDate.setDate(endDate.getDate() + days - 1);
+  const endStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
+
+  const dateStr = date.replace(/-/g, '');
+
+  // Check cache
+  const cKey = cacheKey(currentStation.id, dateStr, days);
+  const cached = getCached(cKey);
+
+  if (cached) {
+    renderAll(cached, date);
+    return;
+  }
+
+  // Show loading
+  document.getElementById('current-conditions').innerHTML = `
+    <div class="current-card">
+      <div class="status-msg">
+        <div class="loading"></div>
+        Loading tide data for ${currentStation.name}...
+      </div>
+    </div>`;
+
+  document.getElementById('error-display').innerHTML = '';
+
+  try {
+    // Fetch water level predictions
+    const params = new URLSearchParams({
+      product: 'predictions',
+      application: 'ShipLog/1.0',
+      begin_date: dateStr,
+      end_date: endStr,
+      datum: 'MLLW',
+      station: currentStation.id,
+      time_zone: 'lst_ldt',
+      units: 'metric',
+      interval: '6',  // 6-minute intervals for smooth curve
+      format: 'json'
+    });
+
+    const resp = await fetch(`${PRED_API}?${params}`);
+    if (!resp.ok) throw new Error(`NOAA API returned ${resp.status}`);
+
+    const data = await resp.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'Unknown NOAA API error');
+    }
+
+    const predictions = (data.predictions || []).map(p => ({
+      time: p.t,
+      height: parseFloat(p.v)
+    }));
+
+    // Fetch high/low tide predictions
+    const hlParams = new URLSearchParams({
+      product: 'predictions',
+      application: 'ShipLog/1.0',
+      begin_date: dateStr,
+      end_date: endStr,
+      datum: 'MLLW',
+      station: currentStation.id,
+      time_zone: 'lst_ldt',
+      units: 'metric',
+      interval: 'hilo',
+      format: 'json'
+    });
+
+    const hlResp = await fetch(`${PRED_API}?${hlParams}`);
+    const hlData = await hlResp.json();
+    const hiLows = (hlData.predictions || []).map(p => ({
+      time: p.t,
+      height: parseFloat(p.v),
+      type: p.type === 'H' ? 'high' : 'low'
+    }));
+
+    const allData = { predictions, hiLows, stationId: currentStation.id, stationName: currentStation.name };
+    setCached(cKey, allData);
+    renderAll(allData, date);
+
+  } catch(e) {
+    document.getElementById('current-conditions').innerHTML = '';
+    document.getElementById('predictions-table').innerHTML = '';
+    document.getElementById('error-display').innerHTML = `
+      <div class="error-msg">
+        ⚠ Failed to load tide data: ${e.message}<br>
+        NOAA CO-OPS API may be temporarily unavailable. The station ID may be invalid.
+        Try a different station.
+      </div>`;
+    if (tideChart) { tideChart.destroy(); tideChart = null; }
+  }
+}
+
+// ── Render All ──────────────────────────────────────────
+function renderAll(data, targetDate) {
+  renderCurrent(data, targetDate);
+  renderChart(data, targetDate);
+  renderPredictions(data, targetDate);
+}
+
+// Current conditions
+function renderCurrent(data, targetDate) {
+  if (!data.predictions || data.predictions.length === 0) {
+    document.getElementById('current-conditions').innerHTML = '<div class="status-msg">No data available.</div>';
+    return;
+  }
+
+  const now = new Date();
+  const todayStr = targetDate || now.toISOString().split('T')[0];
+
+  // Find predictions closest to now
+  let closest = data.predictions[0];
+  let closestIdx = 0;
+  for (let i = 0; i < data.predictions.length; i++) {
+    const t = new Date(data.predictions[i].time);
+    if (t > now) { closest = data.predictions[Math.max(0, i-1)]; closestIdx = Math.max(0, i-1); break; }
+    closest = data.predictions[i];
+    closestIdx = i;
+  }
+
+  // Determine trend (rising or falling)
+  const next = data.predictions[Math.min(data.predictions.length-1, closestIdx + 1)];
+  const prev = data.predictions[Math.max(0, closestIdx - 1)];
+  const trend = next && prev ? (next.height - prev.height) : 0;
+  const isRising = trend > 0;
+
+  // Find next high/low
+  const nextEvents = data.hiLows.filter(h => new Date(h.time) >= now);
+  const nextHigh = nextEvents.find(e => e.type === 'high');
+  const nextLow = nextEvents.find(e => e.type === 'low');
+  const nextEvent = nextHigh && nextLow ?
+    (new Date(nextHigh.time) < new Date(nextLow.time) ? nextHigh : nextLow) :
+    (nextHigh || nextLow);
+
+  const heightFt = (closest.height * 3.28084).toFixed(2);
+  const heightM = closest.height.toFixed(2);
+
+  let eventLabel = '';
+  let eventTime = '';
+  let eventHeight = '';
+  if (nextEvent) {
+    const et = new Date(nextEvent.time);
+    const diff = et - now;
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    eventLabel = nextEvent.type === 'high' ? '🔼 Next High' : '🔽 Next Low';
+    eventTime = `${hrs}h ${mins}m`;
+    eventHeight = `${(nextEvent.height * 3.28084).toFixed(1)} ft / ${nextEvent.height.toFixed(2)} m`;
+  }
+
+  const icon = isRising ? '🌊⬆' : '🌊⬇';
+  const trendColor = isRising ? 'rising' : 'falling';
+  const trendArrow = isRising ? '▲ Rising' : '▼ Falling';
+
+  document.getElementById('current-conditions').innerHTML = `
+    <div class="current-card">
+      <div class="tide-icon">${icon}</div>
+      <div class="tide-info">
+        <div class="tide-level">${heightFt} ft <span style="font-size:0.875rem;color:var(--text-dim)">(${heightM} m)</span></div>
+        <div class="tide-trend">
+          <span class="${trendColor}">${trendArrow}</span> · ${currentStation.name} · MLLW datum
+        </div>
+      </div>
+      <div class="next-event">
+        <div class="label">${eventLabel}</div>
+        <div class="time">${eventTime}</div>
+        <div class="height">${eventHeight}</div>
+      </div>
+    </div>`;
+}
+
+// Chart
+function renderChart(data, targetDate) {
+  const ctx = document.getElementById('tide-chart').getContext('2d');
+
+  // Downsample for 3-day/week views
+  let preds = data.predictions;
+  if (currentView === '3day') preds = preds.filter((_, i) => i % 3 === 0);
+  if (currentView === 'week') preds = preds.filter((_, i) => i % 7 === 0);
+
+  const labels = preds.map(p => {
+    const d = new Date(p.time);
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+  });
+
+  const heights = preds.map(p => p.height * 3.28084); // Convert to feet
+
+  if (tideChart) tideChart.destroy();
+
+  // Calculate high/low annotations
+  const hlPoints = data.hiLows.map(h => ({
+    x: new Date(h.time).toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    }),
+    y: h.height * 3.28084,
+    type: h.type
+  }));
+
+  tideChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Tide (ft)',
+        data: heights,
+        borderColor: '#0ea5e9',
+        backgroundColor: 'rgba(14,165,233,0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#0ea5e9',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const m = (ctx.parsed.y / 3.28084).toFixed(2);
+              return `${ctx.parsed.y.toFixed(1)} ft (${m} m)`;
+            }
+          },
+          backgroundColor: '#111827',
+          borderColor: '#1f2937',
+          borderWidth: 1,
+          titleColor: '#e5e7eb',
+          bodyColor: '#0ea5e9',
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#1f2937' },
+          ticks: {
+            color: '#9ca3af',
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: currentView === 'today' ? 8 : currentView === '3day' ? 12 : 14,
+          }
+        },
+        y: {
+          grid: { color: '#1f2937' },
+          ticks: {
+            color: '#9ca3af',
+            callback: (v) => `${v.toFixed(1)} ft`
+          },
+          title: {
+            display: true,
+            text: 'Water Level (ft, MLLW)',
+            color: '#9ca3af',
+            font: { size: 11 }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Predictions table
+function renderPredictions(data, targetDate) {
+  if (!data.hiLows || data.hiLows.length === 0) {
+    document.getElementById('predictions-table').innerHTML = '<div class="status-msg">No predictions available.</div>';
+    return;
+  }
+
+  const today = targetDate || new Date().toISOString().split('T')[0];
+
+  // Group by date
+  const byDate = {};
+  data.hiLows.forEach(h => {
+    const d = h.time.split(' ')[0];
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(h);
+  });
+
+  let html = '<table class="pred-table"><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Height</th></tr></thead><tbody>';
+
+  Object.keys(byDate).sort().forEach(date => {
+    byDate[date].forEach(h => {
+      const time = h.time.split(' ')[1] || h.time;
+      const heightFt = (h.height * 3.28084).toFixed(1);
+      const heightM = h.height.toFixed(2);
+      const typeClass = h.type === 'high' ? 'pred-type-high' : 'pred-type-low';
+      const typeIcon = h.type === 'high' ? '🔼 High' : '🔽 Low';
+
+      html += `<tr>
+        <td>${date}</td>
+        <td>${time}</td>
+        <td class="${typeClass}">${typeIcon}</td>
+        <td>${heightFt} ft <span style="color:var(--text-dim)">(${heightM} m)</span></td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('predictions-table').innerHTML = html;
+}
+
+// Close search on overlay click
+document.getElementById('search-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'search-overlay') closeStationSearch();
+});
+</script>
+</body>
+</html>
