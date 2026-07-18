@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 Vessel Quest</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel-2: #161e2e;
+    --border: #1f2937;
+    --gold: #fbbf24;
+    --gold-dim: #92660a;
+    --xp: #8b5cf6;
+    --xp-dim: #5b21b6;
+    --accent: #0ea5e9;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --crit: #ef4444;
+    --rare: #8b5cf6;
+    --epic: #f472b6;
+    --legendary: #fbbf24;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+
+  /* ── Captain Card ─────────────────────────────── */
+  .captain-card {
+    background: linear-gradient(135deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 20px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .captain-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .vessel-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--xp-dim), var(--xp));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 20px rgba(139,92,246,0.3);
+  }
+  .vessel-info h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .vessel-title {
+    font-size: 0.875rem;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .xp-bar-container {
+    height: 14px;
+    background: var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    position: relative;
+  }
+  .xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--xp-dim), var(--xp), var(--gold));
+    border-radius: 7px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .xp-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .xp-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .vessel-stats {
+    text-align: right;
+  }
+  .stat-big {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ── Stat Row ─────────────────────────────────── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .stat-card:hover {
+    border-color: var(--xp);
+    transform: translateY(-2px);
+  }
+  .stat-card .icon { font-size: 1.5rem; margin-bottom: 6px; }
+  .stat-card .value { font-size: 1.3rem; font-weight: 700; }
+  .stat-card .label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── Streak Banner ────────────────────────────── */
+  .streak-banner {
+    background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.1));
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .streak-flame {
+    font-size: 2.5rem;
+    animation: flicker 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes flicker {
+    0% { transform: scale(1) rotate(-2deg); }
+    100% { transform: scale(1.1) rotate(2deg); }
+  }
+  .streak-info { flex: 1; }
+  .streak-days {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--warn);
+  }
+  .streak-detail {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Achievements Grid ────────────────────────── */
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .count {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .achievement {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .achievement.locked {
+    opacity: 0.35;
+    filter: grayscale(0.8);
+  }
+  .achievement.unlocked {
+    border-color: var(--gold-dim);
+  }
+  .achievement.unlocked:hover {
+    border-color: var(--gold);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(251,191,36,0.15);
+  }
+  .achievement.unlocked::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--rarity-color, var(--gold));
+  }
+  .achievement.rarity-rare::before { background: var(--rare); }
+  .achievement.rarity-epic::before { background: var(--epic); }
+  .achievement.rarity-legendary::before { background: var(--legendary); }
+
+  .ach-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .ach-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .ach-desc {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    line-height: 1.3;
+  }
+  .ach-progress {
+    margin-top: 8px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .ach-progress-fill {
+    height: 100%;
+    background: var(--xp);
+    border-radius: 2px;
+    transition: width 0.6s;
+  }
+  .ach-progress-text {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+
+  .rarity-badge {
+    display: inline-block;
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .rarity-common { background: rgba(156,163,175,0.2); color: var(--text-dim); }
+  .rarity-uncommon { background: rgba(16,185,129,0.15); color: var(--ok); }
+  .rarity-rare { background: rgba(139,92,246,0.15); color: var(--rare); }
+  .rarity-epic { background: rgba(244,114,182,0.15); color: var(--epic); }
+  .rarity-legendary { background: rgba(251,191,36,0.15); color: var(--legendary); }
+
+  /* ── Crew Leaderboard ─────────────────────────── */
+  .leaderboard {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .lb-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-rank {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+  }
+  .lb-rank.gold { background: rgba(251,191,36,0.2); color: var(--gold); }
+  .lb-rank.silver { background: rgba(156,163,175,0.2); color: var(--text-dim); }
+  .lb-rank.bronze { background: rgba(180,83,9,0.2); color: #b45309; }
+  .lb-rank.normal { background: var(--border); color: var(--text-dim); }
+  .lb-name { font-weight: 500; }
+  .lb-xp {
+    font-size: 0.875rem;
+    color: var(--xp);
+    font-weight: 600;
+  }
+  .lb-bar {
+    width: 80px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .lb-bar-fill {
+    height: 100%;
+    background: var(--xp);
+    border-radius: 3px;
+  }
+
+  /* ── Quests ───────────────────────────────────── */
+  .quests {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .quest-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+  }
+  .quest-item:last-child { margin-bottom: 0; }
+  .quest-item.complete {
+    border-color: var(--ok);
+    background: rgba(16,185,129,0.05);
+  }
+  .quest-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--border);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+  }
+  .quest-info {}
+  .quest-name { font-weight: 500; font-size: 0.875rem; }
+  .quest-desc { font-size: 0.75rem; color: var(--text-dim); }
+  .quest-reward {
+    text-align: right;
+  }
+  .quest-xp {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--xp);
+  }
+  .quest-status {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .quest-status.done { color: var(--ok); }
+
+  /* ── Rank Title ───────────────────────────────── */
+  .rank-display {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .rank-ladder {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .rank-step {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.7rem;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--bg);
+  }
+  .rank-step.current {
+    background: var(--xp-dim);
+    color: white;
+    border-color: var(--xp);
+    font-weight: 600;
+  }
+  .rank-step.passed {
+    color: var(--ok);
+    border-color: rgba(16,185,129,0.3);
+  }
+
+  /* ── Recent Unlocks ───────────────────────────── */
+  .unlock-toast {
+    background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(139,92,246,0.1));
+    border: 1px solid var(--gold-dim);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideIn 0.5s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 600px) {
+    .captain-card { grid-template-columns: 1fr; text-align: center; }
+    .vessel-stats { text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Captain Card -->
+<div class="captain-card" id="captain-card"></div>
+
+<!-- Streak Banner -->
+<div id="streak-section"></div>
+
+<!-- Recent Unlocks -->
+<div id="unlock-section"></div>
+
+<!-- Quick Stats -->
+<div class="stat-row" id="stat-row"></div>
+
+<!-- Active Quests -->
+<div class="quests">
+  <div class="section-title">🎯 Daily Quests <span class="count" id="quest-count"></span></div>
+  <div id="quest-list"></div>
+</div>
+
+<!-- Achievements -->
+<div class="section-title">🏅 Achievements <span class="count" id="ach-count"></span></div>
+<div class="achievements-grid" id="achievements-grid"></div>
+
+<!-- Crew Leaderboard -->
+<div class="leaderboard">
+  <div class="section-title">👥 Crew Leaderboard</div>
+  <div id="leaderboard"></div>
+</div>
+
+<!-- Rank Ladder -->
+<div class="rank-display">
+  <div class="section-title" style="justify-content:center">🎖️ Captain Rank</div>
+  <div class="rank-ladder" id="rank-ladder"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// VESSEL QUEST — Gamified vessel operations
+// ═══════════════════════════════════════════════════════════
+//
+// Reads data from all other ship-log modules (crew logbook,
+// maintenance, fuel, trip planner) and turns vessel operations
+// into an XP-based progression system.
+//
+// XP Sources:
+//   - Log entries: +10 XP each
+//   - Maintenance completed: +50 XP
+//   - Fuel logged: +15 XP
+//   - Trip completed: +100 XP
+//   - Checklist items: +5 XP
+//   - Daily streak: +25 XP bonus
+//   - Catch reports: +30 XP
+//   - Safety checks: +20 XP
+// ═══════════════════════════════════════════════════════════
+
+const STATE_KEY = 'vessel_quest_state';
+const LOG_KEY = 'crew_logbook';       // from crew-logbook module
+const MAINT_KEY = 'maint_tasks';       // from maintenance-scheduler
+const MAINT_HIST_KEY = 'maint_history';
+const FUEL_KEY = 'shiplog.fuel.entries'; // from fuel-tracker
+const TRIP_KEY = 'trip_plan_data';      // from trip-planner
+
+// ── Ranks ────────────────────────────────────────────────
+const RANKS = [
+  { level: 1, xp: 0,      title: 'Deckhand',       icon: '🪢' },
+  { level: 2, xp: 100,    title: 'Boatswain',      icon: '⚓' },
+  { level: 3, xp: 300,    title: 'Third Mate',     icon: '🧭' },
+  { level: 4, xp: 600,    title: 'Second Mate',    icon: '📋' },
+  { level: 5, xp: 1000,   title: 'First Mate',     icon: '🎖️' },
+  { level: 6, xp: 1800,   title: 'Captain',        icon: '🚢' },
+  { level: 7, xp: 3000,   title: 'Master',         icon: '⭐' },
+  { level: 8, xp: 5000,   title: 'Commodore',      icon: '🏆' },
+  { level: 9, xp: 8000,   title: 'Admiral',        icon: '👑' },
+  { level: 10, xp: 12000, title: 'Legend of the Sea', icon: '🐋' },
+];
+
+// ── Achievements ─────────────────────────────────────────
+const ACHIEVEMENTS = [
+  // Logging
+  { id: 'first_log',    name: 'First Words',     desc: 'Log your first entry',          icon: '✍️', xp: 25,   rarity: 'common',    check: s => s.totalLogs >= 1 },
+  { id: 'log_10',       name: 'Journal Keeper',  desc: 'Log 10 entries',                icon: '📔', xp: 50,   rarity: 'common',    check: s => s.totalLogs >= 10 },
+  { id: 'log_50',       name: 'Storyteller',     desc: 'Log 50 entries',                icon: '📚', xp: 100,  rarity: 'uncommon',  check: s => s.totalLogs >= 50 },
+  { id: 'log_100',      name: 'Chronicler',      desc: 'Log 100 entries',               icon: '🏛️', xp: 200,  rarity: 'rare',      check: s => s.totalLogs >= 100 },
+  { id: 'log_500',      name: 'Sea Bard',        desc: 'Log 500 entries',               icon: '🎭', xp: 500,  rarity: 'legendary', check: s => s.totalLogs >= 500 },
+
+  // Streaks
+  { id: 'streak_3',     name: 'Getting Habitual',desc: '3-day logging streak',          icon: '🔥', xp: 50,   rarity: 'common',    check: s => s.maxStreak >= 3 },
+  { id: 'streak_7',     name: 'Week Warrior',    desc: '7-day logging streak',          icon: '⚡', xp: 100,  rarity: 'uncommon',  check: s => s.maxStreak >= 7 },
+  { id: 'streak_30',    name: 'Unstoppable',     desc: '30-day logging streak',         icon: '💫', xp: 300,  rarity: 'epic',      check: s => s.maxStreak >= 30 },
+  { id: 'streak_100',   name: 'Iron Mariner',    desc: '100-day logging streak',        icon: '🦾', xp: 1000, rarity: 'legendary', check: s => s.maxStreak >= 100 },
+
+  // Maintenance
+  { id: 'first_fix',    name: 'Wrench Turner',   desc: 'Complete first maintenance task', icon: '🔧', xp: 50,  rarity: 'common',    check: s => s.maintCompleted >= 1 },
+  { id: 'maint_10',     name: 'Shipshape',       desc: 'Complete 10 maintenance tasks',   icon: '✨', xp: 150, rarity: 'uncommon',  check: s => s.maintCompleted >= 10 },
+  { id: 'maint_50',     name: 'Engine Whisperer',desc: 'Complete 50 maintenance tasks',   icon: '🧙', xp: 500, rarity: 'epic',      check: s => s.maintCompleted >= 50 },
+  { id: 'no_overdue',   name: 'On Schedule',     desc: 'Zero overdue maintenance tasks',  icon: '📅', xp: 75,  rarity: 'uncommon',  check: s => s.overdueTasks === 0 && s.maintCompleted >= 3 },
+
+  // Trips
+  { id: 'first_trip',   name: 'Anchors Aweigh',  desc: 'Plan your first trip',           icon: '🧭', xp: 50,   rarity: 'common',    check: s => s.tripsPlanned >= 1 },
+  { id: 'trip_10',      name: 'Old Salt',        desc: 'Complete 10 trips',              icon: '🗺️', xp: 200,  rarity: 'rare',      check: s => s.tripsCompleted >= 10 },
+  { id: 'trip_50',      name: 'Navigator',       desc: 'Complete 50 trips',              icon: '🌍', xp: 500,  rarity: 'epic',      check: s => s.tripsCompleted >= 50 },
+
+  // Distance
+  { id: 'dist_100',     name: 'Century',         desc: 'Travel 100 nautical miles',      icon: '📏', xp: 100,  rarity: 'uncommon',  check: s => s.totalDistance >= 100 },
+  { id: 'dist_1000',    name: 'Long Ranger',     desc: 'Travel 1,000 nautical miles',    icon: '🌊', xp: 300,  rarity: 'rare',      check: s => s.totalDistance >= 1000 },
+  { id: 'dist_5000',    name: 'Ocean Crosser',   desc: 'Travel 5,000 nautical miles',    icon: '🐬', xp: 1000, rarity: 'legendary', check: s => s.totalDistance >= 5000 },
+
+  // Safety
+  { id: 'safety_100',   name: 'Safety First',    desc: 'Complete all checklist items',   icon: '🦺', xp: 50,   rarity: 'common',    check: s => s.checklistCompletion >= 100 },
+  { id: 'safety_10x',   name: 'Routine Excellence', desc: 'Full checklist 10 times',     icon: '🏅', xp: 200,  rarity: 'rare',      check: s => s.fullChecklists >= 10 },
+
+  // Fuel
+  { id: 'fuel_5',       name: 'Number Cruncher', desc: 'Log fuel 5 times',              icon: '⛽', xp: 50,   rarity: 'common',    check: s => s.fuelLogs >= 5 },
+  { id: 'fuel_efficient', name: 'Sipper',        desc: 'Achieve 4+ NMPG average',       icon: '🌿', xp: 100,  rarity: 'uncommon',  check: s => s.avgNmpg >= 4 },
+
+  // Catch
+  { id: 'first_catch',  name: 'Hooked',          desc: 'Log your first catch',           icon: '🐟', xp: 30,   rarity: 'common',    check: s => s.catches >= 1 },
+  { id: 'catch_100',    name: 'Fisherman',       desc: 'Log 100 catches',                icon: '🎣', xp: 200,  rarity: 'rare',      check: s => s.catches >= 100 },
+  { id: 'catch_1000',   name: 'Highliner',       desc: 'Log 1,000 catches',              icon: '🏆', xp: 1000, rarity: 'legendary', check: s => s.catches >= 1000 },
+
+  // Crew
+  { id: 'crew_2',       name: 'More Hands',      desc: 'Add 2+ crew members',            icon: '👥', xp: 25,   rarity: 'common',    check: s => s.crewSize >= 2 },
+  { id: 'crew_5',       name: 'Full Complement', desc: 'Add 5+ crew members',            icon: '👨‍👩‍👧‍👦', xp: 75,   rarity: 'uncommon',  check: s => s.crewSize >= 5 },
+
+  // Night Owl / Early Bird
+  { id: 'night_owl',    name: 'Night Owl',       desc: 'Log 10 night-watch entries',     icon: '🦉', xp: 75,   rarity: 'uncommon',  check: s => s.nightEntries >= 10 },
+  { id: 'early_bird',   name: 'Early Bird',      desc: 'Log before 5 AM 5 times',        icon: '🐦', xp: 75,   rarity: 'uncommon',  check: s => s.earlyBird >= 5 },
+
+  // Special
+  { id: 'all_modules',  name: 'Fully Equipped',  desc: 'Use all 5 module types',         icon: '⚙️', xp: 150,  rarity: 'rare',      check: s => s.modulesUsed >= 5 },
+  { id: 'trade_wind',   name: 'Trade Wind',      desc: 'Log in 3 different months',      icon: '🌬️', xp: 100,  rarity: 'uncommon',  check: s => s.uniqueMonths >= 3 },
+  { id: 'four_seasons', name: 'Four Seasons',    desc: 'Log in all 4 seasons',           icon: '🍂', xp: 300,  rarity: 'epic',      check: s => s.uniqueSeasons >= 4 },
+];
+
+// ── Daily Quests ─────────────────────────────────────────
+const QUEST_POOL = [
+  { id: 'q_log',      name: 'Daily Entry',    desc: 'Log at least 1 entry',         icon: '✍️', xp: 15,  check: s => s.todayLogs >= 1 },
+  { id: 'q_log3',     name: 'Chatterbox',     desc: 'Log 3+ entries today',         icon: '💬', xp: 30,  check: s => s.todayLogs >= 3 },
+  { id: 'q_maint',    name: 'Fix It',         desc: 'Complete a maintenance task',  icon: '🔧', xp: 40,  check: s => s.todayMaint >= 1 },
+  { id: 'q_safety',   name: 'Safety Check',   desc: 'Complete pre-departure checklist', icon: '🦺', xp: 35, check: s => s.todayChecklist },
+  { id: 'q_catch',    name: 'Daily Catch',    desc: 'Log a catch report',           icon: '🐟', xp: 25,  check: s => s.todayCatches >= 1 },
+  { id: 'q_fuel',     name: 'Fuel Up',        desc: 'Log a fuel entry',             icon: '⛽', xp: 20,  check: s => s.todayFuel },
+  { id: 'q_trip',     name: 'Plan Ahead',     desc: 'Plan or review a trip',        icon: '🧭', xp: 25,  check: s => s.todayTrip },
+  { id: 'q_night',    name: 'Night Watch',    desc: 'Log during night watch',       icon: '🌙', xp: 20,  check: s => s.todayNight },
+  { id: 'q_early',    name: 'Dawn Patrol',    desc: 'Log before 6 AM',              icon: '🌅', xp: 20,  check: s => s.todayEarly },
+];
+
+// ── State ────────────────────────────────────────────────
+function loadState() {
+  const raw = localStorage.getItem(STATE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  return {
+    unlockedAchievements: [],
+    completedQuests: {},
+    questDate: '',
+    lastProcessed: 0,
+  };
+}
+
+function saveState(state) {
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+// ── Data Gathering ───────────────────────────────────────
+function gatherStats() {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const hour = now.getHours();
+
+  // Load from all modules
+  const logEntries = safeParse(LOG_KEY, []);
+  const maintTasks = safeParse(MAINT_KEY, []);
+  const maintHistory = safeParse(MAINT_HIST_KEY, []);
+  const fuelEntries = safeParse(FUEL_KEY, []);
+  const tripData = safeParse(TRIP_KEY, { waypoints: [], crew: [], checklist: [] });
+
+  // Log stats
+  const totalLogs = logEntries.length;
+  const todayLogs = logEntries.filter(e => e.timestamp?.startsWith(today)).length;
+  const nightEntries = logEntries.filter(e => e.watch === 'night').length;
+  const earlyBird = logEntries.filter(e => {
+    const d = new Date(e.timestamp);
+    return d.getHours() < 5;
+  }).length;
+  const todayNight = logEntries.filter(e => e.watch === 'night' && e.timestamp?.startsWith(today)).length;
+  const todayEarly = logEntries.filter(e => {
+    const d = new Date(e.timestamp);
+    return d.getHours() < 6 && e.timestamp?.startsWith(today);
+  }).length;
+
+  // Catch stats
+  const catchEntries = logEntries.filter(e =>
+    e.category === 'catch' || (e.text && e.text.toLowerCase().match(/catch|caught|salmon|halibut|tuna|cod|sockeye/i))
+  );
+  const catches = catchEntries.length;
+  const todayCatches = catchEntries.filter(e => e.timestamp?.startsWith(today)).length;
+
+  // Maintenance stats
+  const maintCompleted = maintHistory.length;
+  const overdueTasks = maintTasks.filter(t => {
+    if (t.intervalHours > 0) {
+      const hours = getEngineHours();
+      return (hours - t.lastCompletedHours) > t.intervalHours;
+    }
+    if (t.intervalDays > 0 && t.lastCompletedDate) {
+      const days = (now - new Date(t.lastCompletedDate)) / (1000 * 60 * 60 * 24);
+      return days > t.intervalDays;
+    }
+    return false;
+  }).length;
+  const todayMaint = maintHistory.filter(h => {
+    const d = new Date(h.ts);
+    return d.toISOString().split('T')[0] === today;
+  }).length;
+
+  // Fuel stats
+  const fuelLogs = fuelEntries.length;
+  const todayFuel = fuelEntries.some(f => f.date === today || f.timestamp?.startsWith(today));
+  const avgNmpg = fuelEntries.length > 0
+    ? fuelEntries.reduce((sum, f) => sum + (f.nmpg || f.mpg || 0), 0) / fuelEntries.length
+    : 0;
+
+  // Trip stats
+  const tripsPlanned = tripData.waypoints && tripData.waypoints.length > 0 ? 1 : 0;
+  const tripsCompleted = safeParse('trips_completed', []);
+  const totalDistance = safeParse('total_distance', 0);
+  const todayTrip = tripsPlanned > 0;
+
+  // Checklist
+  const checklistItems = tripData.checklist || [];
+  const checklistDone = checklistItems.filter(c => c.done).length;
+  const checklistTotal = checklistItems.length;
+  const checklistCompletion = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
+  const fullChecklists = safeParse('full_checklists_count', 0);
+  const todayChecklist = checklistCompletion === 100;
+
+  // Crew
+  const crewSize = tripData.crew?.length || 1;
+
+  // Streak calculation
+  const dates = [...new Set(logEntries.map(e => e.timestamp?.split('T')[0]))].sort();
+  let currentStreak = 0;
+  let maxStreak = 0;
+  if (dates.length > 0) {
+    // Check backwards from today
+    const todayDate = new Date(today);
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(todayDate);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = checkDate.toISOString().split('T')[0];
+      if (dates.includes(dateStr)) {
+        if (i === 0) currentStreak++;
+        else if (dates.includes(new Date(todayDate.getTime() - (i-1)*86400000).toISOString().split('T')[0])) {
+          currentStreak++;
+        }
+      } else if (i > 0) break;
+    }
+    maxStreak = safeParse('max_streak', 0);
+    if (currentStreak > maxStreak) {
+      localStorage.setItem('max_streak', String(currentStreak));
+      maxStreak = currentStreak;
+    }
+  }
+
+  // Unique months & seasons
+  const uniqueMonths = new Set(dates.map(d => d.substring(0, 7))).size;
+  const uniqueSeasons = new Set();
+  dates.forEach(d => {
+    const m = parseInt(d.substring(5, 7));
+    if (m >= 3 && m <= 5) uniqueSeasons.add('spring');
+    else if (m >= 6 && m <= 8) uniqueSeasons.add('summer');
+    else if (m >= 9 && m <= 11) uniqueSeasons.add('fall');
+    else uniqueSeasons.add('winter');
+  });
+
+  // Modules used
+  let modulesUsed = 0;
+  if (totalLogs > 0) modulesUsed++;
+  if (maintCompleted > 0 || maintTasks.length > 0) modulesUsed++;
+  if (fuelLogs > 0) modulesUsed++;
+  if (tripsPlanned > 0) modulesUsed++;
+  if (crewSize > 1) modulesUsed++;
+
+  return {
+    totalLogs, todayLogs, nightEntries, earlyBird, todayNight, todayEarly,
+    catches, todayCatches,
+    maintCompleted, overdueTasks, todayMaint,
+    fuelLogs, todayFuel, avgNmpg,
+    tripsPlanned, tripsCompleted: tripsCompleted.length, totalDistance, todayTrip,
+    checklistCompletion, fullChecklists, todayChecklist,
+    crewSize,
+    currentStreak, maxStreak,
+    uniqueMonths, uniqueSeasons,
+    modulesUsed,
+  };
+}
+
+function safeParse(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch(e) { return fallback; }
+}
+
+function getEngineHours() {
+  return parseFloat(localStorage.getItem('maint_engine_hours') || '0');
+}
+
+// ── XP Calculation ───────────────────────────────────────
+function calculateXP(stats) {
+  let xp = 0;
+  xp += stats.totalLogs * 10;
+  xp += stats.maintCompleted * 50;
+  xp += stats.fuelLogs * 15;
+  xp += stats.tripsCompleted * 100;
+  xp += stats.catches * 30;
+  xp += stats.fullChecklists * 20;
+
+  // Streak bonus
+  if (stats.currentStreak > 0) {
+    xp += stats.currentStreak * 25;
+  }
+
+  // Achievement XP
+  const state = loadState();
+  state.unlockedAchievements.forEach(id => {
+    const ach = ACHIEVEMENTS.find(a => a.id === id);
+    if (ach) xp += ach.xp;
+  });
+
+  return Math.round(xp);
+}
+
+function getRank(xp) {
+  let rank = RANKS[0];
+  let nextRank = RANKS[1] || RANKS[0];
+  for (let i = 0; i < RANKS.length; i++) {
+    if (xp >= RANKS[i].xp) {
+      rank = RANKS[i];
+      nextRank = RANKS[i + 1] || RANKS[i];
+    }
+  }
+  return { current: rank, next: nextRank };
+}
+
+// ── Achievement Checking ─────────────────────────────────
+function checkAchievements(stats) {
+  const state = loadState();
+  const newlyUnlocked = [];
+
+  ACHIEVEMENTS.forEach(ach => {
+    if (state.unlockedAchievements.includes(ach.id)) return;
+    if (ach.check(stats)) {
+      state.unlockedAchievements.push(ach.id);
+      newlyUnlocked.push(ach);
+    }
+  });
+
+  // Check daily quests (reset if new day)
+  const today = new Date().toISOString().split('T')[0];
+  if (state.questDate !== today) {
+    state.completedQuests = {};
+    state.questDate = today;
+  }
+
+  // Pick 3 random quests for today if not set
+  if (!state.todayQuests || state.questDate !== today) {
+    const shuffled = [...QUEST_POOL].sort(() => Math.random() - 0.5);
+    state.todayQuests = shuffled.slice(0, 3).map(q => q.id);
+  }
+
+  // Check quest completion
+  state.todayQuests.forEach(qId => {
+    if (state.completedQuests[qId]) return;
+    const quest = QUEST_POOL.find(q => q.id === qId);
+    if (quest && quest.check(stats)) {
+      state.completedQuests[qId] = true;
+    }
+  });
+
+  saveState(state);
+  return { newlyUnlocked, state };
+}
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  const stats = gatherStats();
+  const xp = calculateXP(stats);
+  const rank = getRank(xp);
+  const { newlyUnlocked, state } = checkAchievements(stats);
+
+  // Captain Card
+  const progressInLevel = xp - rank.current.xp;
+  const levelSpan = rank.next.xp - rank.current.xp;
+  const pct = rank.current.level === rank.next.level ? 100 : (progressInLevel / levelSpan) * 100;
+
+  document.getElementById('captain-card').innerHTML = `
+    <div class="vessel-avatar">${rank.current.icon}</div>
+    <div class="vessel-info">
+      <h1>${rank.current.title}</h1>
+      <div class="vessel-title">Level ${rank.current.level} · Vessel Quest</div>
+      <div class="xp-bar-container">
+        <div class="xp-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="xp-text">
+        <span>${xp.toLocaleString()} XP</span>
+        <span>${rank.current.level === rank.next.level ? 'MAX' : `${(rank.next.xp - xp).toLocaleString()} XP to ${rank.next.title}`}</span>
+      </div>
+    </div>
+    <div class="vessel-stats">
+      <div class="stat-big">${stats.totalLogs}</div>
+      <div class="stat-label">Total Entries</div>
+    </div>`;
+
+  // Streak Banner
+  const streakSection = document.getElementById('streak-section');
+  if (stats.currentStreak > 0) {
+    streakSection.innerHTML = `
+      <div class="streak-banner">
+        <div class="streak-flame">🔥</div>
+        <div class="streak-info">
+          <div class="streak-days">${stats.currentStreak}-Day Streak!</div>
+          <div class="streak-detail">${stats.currentStreak * 25} XP streak bonus · Keep logging daily</div>
+        </div>
+      </div>`;
+  } else {
+    streakSection.innerHTML = '';
+  }
+
+  // Recent Unlocks
+  const unlockSection = document.getElementById('unlock-section');
+  if (newlyUnlocked.length > 0) {
+    unlockSection.innerHTML = newlyUnlocked.map(a => `
+      <div class="unlock-toast">
+        <span style="font-size:1.5rem">${a.icon}</span>
+        <div>
+          <strong>Achievement Unlocked: ${a.name}</strong><br>
+          <span style="color:var(--text-dim);font-size:0.8rem">${a.desc} · +${a.xp} XP</span>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    unlockSection.innerHTML = '';
+  }
+
+  // Quick Stats
+  document.getElementById('stat-row').innerHTML = `
+    <div class="stat-card">
+      <div class="icon">📝</div>
+      <div class="value">${stats.totalLogs}</div>
+      <div class="label">Log Entries</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">🔧</div>
+      <div class="value">${stats.maintCompleted}</div>
+      <div class="label">Maintenance</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">🐟</div>
+      <div class="value">${stats.catches}</div>
+      <div class="label">Catches</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">⛽</div>
+      <div class="value">${stats.fuelLogs}</div>
+      <div class="label">Fuel Logs</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">👥</div>
+      <div class="value">${stats.crewSize}</div>
+      <div class="label">Crew</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">📅</div>
+      <div class="value">${stats.uniqueMonths}</div>
+      <div class="label">Active Months</div>
+    </div>
+  `;
+
+  // Daily Quests
+  const todayQuests = state.todayQuests || [];
+  const completedToday = todayQuests.filter(qId => state.completedQuests[qId]).length;
+  document.getElementById('quest-count').textContent = `${completedToday}/${todayQuests.length} complete`;
+
+  document.getElementById('quest-list').innerHTML = todayQuests.map(qId => {
+    const quest = QUEST_POOL.find(q => q.id === qId);
+    if (!quest) return '';
+    const done = state.completedQuests[qId];
+    return `
+      <div class="quest-item ${done ? 'complete' : ''}">
+        <div class="quest-icon">${quest.icon}</div>
+        <div class="quest-info">
+          <div class="quest-name">${quest.name}</div>
+          <div class="quest-desc">${quest.desc}</div>
+        </div>
+        <div class="quest-reward">
+          <div class="quest-xp">+${quest.xp} XP</div>
+          <div class="quest-status ${done ? 'done' : ''}">${done ? '✓ Done' : 'Pending'}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Achievements
+  const unlockedCount = state.unlockedAchievements.length;
+  document.getElementById('ach-count').textContent = `${unlockedCount}/${ACHIEVEMENTS.length} unlocked`;
+
+  document.getElementById('achievements-grid').innerHTML = ACHIEVEMENTS.map(ach => {
+    const unlocked = state.unlockedAchievements.includes(ach.id);
+    const progress = unlocked ? 1 : getAchievementProgress(ach, stats);
+    return `
+      <div class="achievement ${unlocked ? 'unlocked' : 'locked'} rarity-${ach.rarity}">
+        <span class="rarity-badge rarity-${ach.rarity}">${ach.rarity}</span>
+        <span class="ach-icon">${ach.icon}</span>
+        <div class="ach-name">${ach.name}</div>
+        <div class="ach-desc">${ach.desc}</div>
+        ${!unlocked ? `
+          <div class="ach-progress">
+            <div class="ach-progress-fill" style="width:${progress * 100}%"></div>
+          </div>
+          <div class="ach-progress-text">${Math.round(progress * 100)}%</div>
+        ` : `<div class="ach-progress-text" style="color:var(--gold)">+${ach.xp} XP</div>`}
+      </div>`;
+  }).join('');
+
+  // Leaderboard (simulated based on crew)
+  const crewData = safeParse('crew_roster', [{ name: 'You', role: 'captain' }]);
+  const leaderboard = crewData.map((c, i) => {
+    // Distribute XP across crew based on log contributions
+    const contribution = i === 0 ? 0.4 : 0.6 / Math.max(1, crewData.length - 1);
+    return { name: c.name, role: c.role, xp: Math.round(xp * contribution) };
+  }).sort((a, b) => b.xp - a.xp);
+
+  const maxXp = Math.max(...leaderboard.map(l => l.xp), 1);
+
+  document.getElementById('leaderboard').innerHTML = leaderboard.map((entry, i) => {
+    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'normal';
+    return `
+      <div class="lb-row">
+        <div class="lb-rank ${rankClass}">${i + 1}</div>
+        <div class="lb-name">${entry.name}</div>
+        <div class="lb-bar"><div class="lb-bar-fill" style="width:${(entry.xp / maxXp) * 100}%"></div></div>
+        <div class="lb-xp">${entry.xp.toLocaleString()} XP</div>
+      </div>`;
+  }).join('');
+
+  // Rank Ladder
+  document.getElementById('rank-ladder').innerHTML = RANKS.map(r => {
+    const status = r.level === rank.current.level ? 'current' : xp >= r.xp ? 'passed' : '';
+    return `<span class="rank-step ${status}">${r.icon} ${r.title}</span>`;
+  }).join('');
+}
+
+function getAchievementProgress(ach, stats) {
+  // Rough progress estimation for locked achievements
+  const checks = {
+    totalLogs: [1, 10, 50, 100, 500],
+    maxStreak: [3, 7, 30, 100],
+    maintCompleted: [1, 10, 50],
+    catches: [1, 100, 1000],
+    fuelLogs: [5],
+    totalDistance: [100, 1000, 5000],
+  };
+
+  for (const [key, thresholds] of Object.entries(checks)) {
+    if (ach.check.toString().includes(key)) {
+      const current = stats[key] || 0;
+      const threshold = thresholds.find(t => t > current) || thresholds[thresholds.length - 1];
+      return Math.min(1, current / threshold);
+    }
+  }
+  return ach.check(stats) ? 1 : 0;
+}
+
+// ── Init ────────────────────────────────────────────────
+render();
+
+// Refresh when other modules update
+window.addEventListener('storage', render);
+</script>
+</body>
+</html>

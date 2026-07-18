@@ -1,0 +1,12 @@
+{
+  "name": "vessel-quest",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Gamified vessel operations — XP, levels, achievements, streaks, crew leaderboards, and milestone tracking",
+  "author": "SuperInstance",
+  "tags": ["gamification", "achievements", "stats", "crew"],
+  "config": {
+    "tab": { "label": "🏆 Quest", "icon": "🏆" }
+  },
+  "permissions": ["read:logs"]
+}

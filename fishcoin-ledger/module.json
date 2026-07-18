@@ -1,0 +1,9 @@
+{
+  "name": "fishcoin-ledger",
+  "version": "0.1.0",
+  "type": "integration",
+  "description": "Tokenized catch reporting — earn FishCoin for accurate logs, redeem for crew perks. Half game, half incentive system.",
+  "author": "SuperInstance",
+  "tags": ["gamification", "incentive", "economy", "crew"],
+  "permissions": ["read:logs", "write:logs"]
+}
