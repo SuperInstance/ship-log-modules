@@ -1,0 +1,51 @@
+{
+  "name": "map-view",
+  "version": "0.1.0",
+  "type": "widget",
+  "description": "Interactive Leaflet map showing log entries as colored, clustered pins on dark tiles. Mobile-first for use at sea.",
+  "author": "SuperInstance",
+  "homepage": "https://github.com/SuperInstance/ship-log-map",
+  "license": "MIT",
+  "config": {
+    "tab": { "label": "Map", "icon": "🗺️" },
+    "entry": "index.html",
+    "scripts": [
+      "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+      "https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
+    ],
+    "styles": [
+      "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+      "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css",
+      "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    ],
+    "tiles": {
+      "url": "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      "attribution": "© OpenStreetMap contributors © CARTO",
+      "maxZoom": 19
+    }
+  },
+  "requires": {
+    "ship-log-search": ">=0.2.0"
+  },
+  "endpoints": {
+    "timeline": "GET /api/timeline?k={limit}",
+    "nearby": "GET /api/nearby?lat={lat}&lon={lon}&radius={radius}",
+    "search": "GET /api/search?q={query}",
+    "stats": "GET /api/stats"
+  },
+  "categories": {
+    "catch":       { "color": "#10b981", "icon": "🎣", "label": "Catch" },
+    "maintenance": { "color": "#f59e0b", "icon": "🔧", "label": "Maintenance" },
+    "weather":     { "color": "#3b82f6", "icon": "🌊", "label": "Weather" },
+    "observation": { "color": "#9ca3af", "icon": "👁", "label": "Observation" },
+    "navigation":  { "color": "#a855f7", "icon": "🧭", "label": "Navigation" }
+  },
+  "permissions": ["read:logs"],
+  "settings": {
+    "refreshSeconds": 60,
+    "defaultZoom": 4,
+    "maxEntries": 5000,
+    "cacheKey": "shiplog.map.entries",
+    "cacheTTLms": 300000
+  }
+}
